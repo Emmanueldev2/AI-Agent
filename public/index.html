@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Subject Line Agent</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;1,9..144,300&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0e0e0e;
+      --bg2: #161616;
+      --bg3: #1e1e1e;
+      --border: #2a2a2a;
+      --border2: #3a3a3a;
+      --text: #e8e4dc;
+      --text2: #888;
+      --text3: #555;
+      --accent: #c8f04a;
+      --accent2: #a8d038;
+      --danger: #ff6b6b;
+      --success: #4af0a8;
+      --mono: 'DM Mono', monospace;
+      --serif: 'Fraunces', serif;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 13px;
+      min-height: 100vh;
+      padding: 0;
+      overflow-x: hidden;
+    }
+
+    /* ── Layout ── */
+    .app { display: grid; grid-template-columns: 380px 1fr; min-height: 100vh; }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      border-right: 1px solid var(--border);
+      padding: 2rem 1.75rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.75rem;
+      background: var(--bg2);
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+    }
+
+    .logo {
+      font-family: var(--serif);
+      font-size: 22px;
+      font-weight: 300;
+      font-style: italic;
+      color: var(--accent);
+      letter-spacing: -0.02em;
+      line-height: 1.2;
+    }
+    .logo span { display: block; font-size: 11px; font-family: var(--mono); font-style: normal; color: var(--text3); letter-spacing: 0.08em; text-transform: uppercase; margin-top: 4px; }
+
+    .field { display: flex; flex-direction: column; gap: 6px; }
+    .field label {
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text3);
+    }
+
+    textarea, input, select {
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 13px;
+      padding: 10px 12px;
+      border-radius: 4px;
+      outline: none;
+      transition: border-color 0.15s;
+      width: 100%;
+    }
+    textarea { resize: vertical; min-height: 90px; line-height: 1.6; }
+    textarea:focus, input:focus, select:focus { border-color: var(--border2); }
+    select option { background: var(--bg3); }
+
+    .btn {
+      background: var(--accent);
+      color: #0e0e0e;
+      border: none;
+      font-family: var(--mono);
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      padding: 12px 20px;
+      border-radius: 4px;
+      cursor: pointer;
+      width: 100%;
+      transition: background 0.15s, transform 0.1s;
+    }
+    .btn:hover { background: var(--accent2); }
+    .btn:active { transform: scale(0.98); }
+    .btn:disabled { background: var(--border2); color: var(--text3); cursor: not-allowed; transform: none; }
+
+    .btn-ghost {
+      background: transparent;
+      border: 1px solid var(--border2);
+      color: var(--text2);
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      padding: 8px 14px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .btn-ghost:hover { border-color: var(--text2); color: var(--text); }
+
+    .divider { border: none; border-top: 1px solid var(--border); }
+
+    /* ── Main panel ── */
+    .main {
+      padding: 2rem 2.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    .top-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 1rem;
+    }
+    .top-bar-title {
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text3);
+    }
+    .status-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--border2);
+      display: inline-block;
+      margin-right: 6px;
+    }
+    .status-dot.ok { background: var(--success); box-shadow: 0 0 6px var(--success); }
+
+    /* ── Metrics ── */
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1px;
+      background: var(--border);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      overflow: hidden;
+    }
+    .metric {
+      background: var(--bg2);
+      padding: 1rem 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .metric-val {
+      font-family: var(--serif);
+      font-size: 28px;
+      font-weight: 300;
+      color: var(--accent);
+    }
+    .metric-lbl {
+      font-size: 10px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text3);
+    }
+
+    /* ── Results ── */
+    .results-header {
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text3);
+    }
+
+    .result-item {
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 1rem 1.25rem;
+      display: flex;
+      align-items: flex-start;
+      gap: 1rem;
+      background: var(--bg2);
+      transition: border-color 0.15s;
+      animation: slideIn 0.3s ease both;
+    }
+    .result-item:hover { border-color: var(--border2); }
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .result-num {
+      font-size: 10px;
+      color: var(--text3);
+      min-width: 16px;
+      padding-top: 2px;
+      font-style: italic;
+    }
+    .result-text {
+      flex: 1;
+      font-size: 14px;
+      line-height: 1.5;
+      color: var(--text);
+    }
+    .result-meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+    .char-badge {
+      font-size: 10px;
+      padding: 2px 7px;
+      border-radius: 20px;
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      color: var(--text3);
+    }
+    .char-badge.ok { border-color: var(--success); color: var(--success); }
+    .char-badge.warn { border-color: var(--danger); color: var(--danger); }
+
+    .copy-btn {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text3);
+      font-size: 11px;
+      padding: 4px 10px;
+      border-radius: 3px;
+      cursor: pointer;
+      font-family: var(--mono);
+      transition: all 0.15s;
+      white-space: nowrap;
+    }
+    .copy-btn:hover { border-color: var(--border2); color: var(--text); }
+    .copy-btn.copied { border-color: var(--success); color: var(--success); }
+
+    /* ── Error ── */
+    .error-box {
+      border: 1px solid var(--danger);
+      background: rgba(255, 107, 107, 0.06);
+      border-radius: 6px;
+      padding: 1rem 1.25rem;
+      color: var(--danger);
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    /* ── Make section ── */
+    .make-section {
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 1.25rem;
+      background: var(--bg2);
+      display: none;
+    }
+    .make-section.visible { display: block; }
+    .make-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 1rem;
+    }
+    .make-badge {
+      font-size: 10px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      background: #4a3f00;
+      color: #f0c040;
+      padding: 2px 8px;
+      border-radius: 20px;
+    }
+    .make-row { display: flex; gap: 8px; align-items: center; }
+    .make-row input { flex: 1; }
+    .make-status { font-size: 12px; color: var(--text3); margin-top: 8px; min-height: 18px; }
+
+    /* ── Empty state ── */
+    .empty {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 1rem;
+      color: var(--text3);
+      text-align: center;
+      padding: 4rem 2rem;
+    }
+    .empty-icon {
+      font-size: 40px;
+      font-family: var(--serif);
+      font-style: italic;
+      font-weight: 300;
+      color: var(--border2);
+    }
+    .empty p { font-size: 12px; line-height: 1.7; max-width: 240px; }
+
+    /* ── Loading ── */
+    .loading {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--text3);
+      font-size: 12px;
+      padding: 2rem 0;
+    }
+    .spinner {
+      width: 16px; height: 16px;
+      border: 1.5px solid var(--border2);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      flex-shrink: 0;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    @media (max-width: 768px) {
+      .app { grid-template-columns: 1fr; }
+      .sidebar { position: static; height: auto; }
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ── Sidebar ── -->
+  <aside class="sidebar">
+    <div class="logo">
+      Subject Line<br/>Agent
+      <span>MVP · Powered by Claude</span>
+    </div>
+
+    <div class="field">
+      <label for="brief">Campaign brief</label>
+      <textarea id="brief" placeholder="e.g. Promote our new eco-friendly water bottle to young adults launching next month."></textarea>
+    </div>
+
+    <div class="field">
+      <label for="demo">Audience demographics</label>
+      <textarea id="demo" placeholder="e.g. Age 18–30, environmentally conscious, active on Instagram and TikTok." style="min-height:70px;"></textarea>
+    </div>
+
+    <div class="field">
+      <label for="tone">Tone</label>
+      <select id="tone">
+        <option value="compelling and friendly">Compelling &amp; friendly</option>
+        <option value="urgent and direct">Urgent &amp; direct</option>
+        <option value="playful and witty">Playful &amp; witty</option>
+        <option value="professional and formal">Professional &amp; formal</option>
+        <option value="minimalist and bold">Minimalist &amp; bold</option>
+      </select>
+    </div>
+
+    <button class="btn" id="genBtn" onclick="generate()">Generate subject lines</button>
+    <button class="btn-ghost" onclick="clearAll()">Clear</button>
+
+    <hr class="divider" />
+
+    <div class="field">
+      <label>Make.com webhook</label>
+      <input type="text" id="webhookUrl" placeholder="https://hook.eu2.make.com/..." />
+    </div>
+    <button class="btn-ghost" id="makeBtn" onclick="sendToMake()" style="display:none;">Send to Make →</button>
+    <p id="makeStatus" class="make-status"></p>
+  </aside>
+
+  <!-- ── Main ── -->
+  <main class="main">
+    <div class="top-bar">
+      <span class="top-bar-title">Results</span>
+      <span id="statusBadge" style="font-size:11px;color:var(--text3);">
+        <span class="status-dot" id="statusDot"></span>Checking API…
+      </span>
+    </div>
+
+    <div class="metrics" id="metrics" style="display:none;">
+      <div class="metric">
+        <div class="metric-val" id="mCount">5</div>
+        <div class="metric-lbl">Lines generated</div>
+      </div>
+      <div class="metric">
+        <div class="metric-val" id="mAvg">—</div>
+        <div class="metric-lbl">Avg characters</div>
+      </div>
+      <div class="metric">
+        <div class="metric-val" id="mUnder">—</div>
+        <div class="metric-lbl">Under 50 chars</div>
+      </div>
+    </div>
+
+    <div id="resultsList">
+      <div class="empty">
+        <div class="empty-icon">✦</div>
+        <p>Fill in the brief and demographics on the left, then hit Generate.</p>
+      </div>
+    </div>
+  </main>
+
+</div>
+
+<script>
+  let lastResults = [];
+
+  // ── API health check ───────────────────────────────────────────────────────
+  (async () => {
+    try {
+      const res = await fetch('/api/health');
+      const { hasKey } = await res.json();
+      const dot = document.getElementById('statusDot');
+      const badge = document.getElementById('statusBadge');
+      if (hasKey) {
+        dot.classList.add('ok');
+        badge.innerHTML = '<span class="status-dot ok"></span>API key connected';
+      } else {
+        badge.innerHTML = '<span class="status-dot"></span>No API key — set in .env';
+      }
+    } catch {
+      document.getElementById('statusBadge').textContent = 'Server offline';
+    }
+  })();
+
+  // ── Generate ───────────────────────────────────────────────────────────────
+  async function generate() {
+    const brief = document.getElementById('brief').value.trim();
+    const demo  = document.getElementById('demo').value.trim();
+    const tone  = document.getElementById('tone').value;
+    const btn   = document.getElementById('genBtn');
+    const list  = document.getElementById('resultsList');
+
+    if (!brief || !demo) {
+      list.innerHTML = '<div class="error-box">Please fill in both the campaign brief and audience demographics.</div>';
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Generating…';
+    list.innerHTML = '<div class="loading"><div class="spinner"></div>Asking Claude to craft your lines…</div>';
+    document.getElementById('metrics').style.display = 'none';
+    document.getElementById('makeBtn').style.display = 'none';
+    document.getElementById('makeStatus').textContent = '';
+
+    try {
+      const res = await fetch('/api/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ campaign_brief: brief, audience_demographics: demo, tone })
+      });
+      const data = await res.json();
+
+      if (data.error) {
+        list.innerHTML = `<div class="error-box">${escHtml(data.error)}</div>`;
+        return;
+      }
+
+      const parsed = data.result;
+      if (parsed.error) {
+        list.innerHTML = `<div class="error-box">${escHtml(parsed.error)}</div>`;
+        return;
+      }
+
+      if (!Array.isArray(parsed)) {
+        list.innerHTML = '<div class="error-box">Unexpected response format.</div>';
+        return;
+      }
+
+      lastResults = parsed;
+      renderResults(parsed);
+      updateMetrics(parsed);
+      document.getElementById('makeBtn').style.display = 'block';
+
+    } catch (err) {
+      list.innerHTML = `<div class="error-box">Network error: ${escHtml(err.message)}</div>`;
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Generate subject lines';
+    }
+  }
+
+  function renderResults(lines) {
+    const list = document.getElementById('resultsList');
+    document.getElementById('metrics').style.display = 'grid';
+
+    list.innerHTML = lines.map((line, i) => {
+      const len = line.length;
+      const cls = len < 50 ? 'ok' : 'warn';
+      return `
+        <div class="result-item" style="animation-delay:${i * 60}ms">
+          <span class="result-num">${i + 1}</span>
+          <span class="result-text">${escHtml(line)}</span>
+          <div class="result-meta">
+            <span class="char-badge ${cls}">${len} ch</span>
+            <button class="copy-btn" onclick="copyLine(this, '${escAttr(line)}')">copy</button>
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  function updateMetrics(lines) {
+    const lens = lines.map(l => l.length);
+    const avg  = Math.round(lens.reduce((a, b) => a + b, 0) / lens.length);
+    const pct  = Math.round((lines.filter(l => l.length < 50).length / lines.length) * 100);
+    document.getElementById('mCount').textContent = lines.length;
+    document.getElementById('mAvg').textContent   = avg;
+    document.getElementById('mUnder').textContent = pct + '%';
+  }
+
+  // ── Make.com ───────────────────────────────────────────────────────────────
+  async function sendToMake() {
+    const url    = document.getElementById('webhookUrl').value.trim();
+    const status = document.getElementById('makeStatus');
+    if (!url) { status.textContent = 'Enter a Make webhook URL first.'; return; }
+    if (!lastResults.length) { status.textContent = 'Generate some lines first.'; return; }
+
+    status.textContent = 'Sending…';
+    try {
+      const res = await fetch('/api/send-to-make', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          webhook_url: url,
+          campaign_brief: document.getElementById('brief').value.trim(),
+          audience: document.getElementById('demo').value.trim(),
+          tone: document.getElementById('tone').value,
+          subject_lines: lastResults,
+        })
+      });
+      const data = await res.json();
+      status.textContent = data.success ? '✓ Sent to Make successfully.' : '✗ ' + data.error;
+    } catch (err) {
+      status.textContent = '✗ ' + err.message;
+    }
+  }
+
+  // ── Utilities ──────────────────────────────────────────────────────────────
+  async function copyLine(btn, text) {
+    await navigator.clipboard.writeText(text);
+    btn.textContent = 'copied!';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = 'copy'; btn.classList.remove('copied'); }, 1600);
+  }
+
+  function clearAll() {
+    document.getElementById('brief').value = '';
+    document.getElementById('demo').value = '';
+    document.getElementById('resultsList').innerHTML = `
+      <div class="empty">
+        <div class="empty-icon">✦</div>
+        <p>Fill in the brief and demographics on the left, then hit Generate.</p>
+      </div>`;
+    document.getElementById('metrics').style.display = 'none';
+    document.getElementById('makeBtn').style.display = 'none';
+    document.getElementById('makeStatus').textContent = '';
+    lastResults = [];
+  }
+
+  function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function escAttr(s) { return String(s).replace(/'/g,"\\'").replace(/"/g,'&quot;'); }
+</script>
+</body>
+</html>
