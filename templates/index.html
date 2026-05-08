@@ -3,213 +3,111 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Glpw.ai — Research Agent</title>
+  <title>Glow.ai — Research Agent</title>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=IBM+Plex+Mono:wght@300;400;500&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Inter:wght@300;400;500&display=swap" rel="stylesheet"/>
   <link rel="stylesheet" href="/static/css/style.css"/>
 </head>
 <body>
+<div class="app">
 
-<!-- ── Top bar ── -->
-<header class="topbar">
-  <div class="topbar-left">
-    <span class="logo">Glpw<em>.ai</em></span>
-    <span class="tagline">Academic Research Agent</span>
-  </div>
-  <div class="topbar-right">
-    <span class="status-indicator" id="statusDot"></span>
-    <span class="status-text" id="statusText">Connecting…</span>
-    <a href="/docs" target="_blank" class="api-link">API Docs ↗</a>
-  </div>
-</header>
-
-<!-- ── Main grid ── -->
-<div class="layout">
-
-  <!-- ── Left panel: controls ── -->
-  <aside class="panel panel-controls">
-
-    <div class="panel-section">
-      <p class="section-label">Research topic</p>
-      <textarea id="topic" class="field-textarea" placeholder="e.g. The impact of microplastics on marine ecosystems and human health"></textarea>
+  <aside class="sidebar">
+    <div class="sidebar-top">
+      <div class="brand"><span class="brand-logo">Glow</span><span class="brand-dot">.ai</span></div>
+      <div class="brand-sub">Research Agent</div>
     </div>
-
-    <div class="panel-section two-col">
-      <div>
-        <p class="section-label">Student level</p>
-        <select id="level" class="field-select">
-          <option value="high school">High school</option>
-          <option value="undergraduate" selected>Undergraduate</option>
-          <option value="postgraduate">Postgraduate / PhD</option>
-        </select>
+    <nav class="nav">
+      <button class="nav-item active" data-mode="summarize"><span class="nav-icon">◈</span><span>Summarize</span></button>
+      <button class="nav-item" data-mode="outline"><span class="nav-icon">◧</span><span>Outline</span></button>
+      <button class="nav-item" data-mode="draft"><span class="nav-icon">◫</span><span>Draft</span></button>
+      <button class="nav-item" data-mode="sources"><span class="nav-icon">◉</span><span>Sources</span></button>
+    </nav>
+    <div class="sidebar-bottom">
+      <div class="agent-status">
+        <span class="status-dot" id="statusDot"></span>
+        <span class="status-label" id="statusText">Connecting…</span>
       </div>
-      <div>
-        <p class="section-label">Citation style</p>
-        <select id="citation" class="field-select">
-          <option value="APA" selected>APA</option>
-          <option value="MLA">MLA</option>
-          <option value="Chicago">Chicago</option>
-          <option value="Harvard">Harvard</option>
-        </select>
-      </div>
-    </div>
-
-    <!-- Paper type (outline only) -->
-    <div class="panel-section" id="paperTypeRow" style="display:none;">
-      <p class="section-label">Paper type</p>
-      <select id="paperType" class="field-select">
-        <option value="research paper">Research paper</option>
-        <option value="thesis">Thesis</option>
-        <option value="essay">Essay</option>
-        <option value="literature review">Literature review</option>
-        <option value="dissertation">Dissertation</option>
-      </select>
-    </div>
-
-    <!-- Section + context (draft only) -->
-    <div class="panel-section" id="draftRow" style="display:none;">
-      <p class="section-label">Section to draft</p>
-      <select id="section" class="field-select">
-        <option value="Introduction">Introduction</option>
-        <option value="Literature Review">Literature Review</option>
-        <option value="Methodology">Methodology</option>
-        <option value="Results">Results</option>
-        <option value="Discussion">Discussion</option>
-        <option value="Conclusion">Conclusion</option>
-        <option value="Abstract">Abstract</option>
-      </select>
-      <p class="section-label" style="margin-top:10px;">Additional context (optional)</p>
-      <textarea id="context" class="field-textarea" style="min-height:60px;" placeholder="e.g. Focus on qualitative methods, 2015–2024 sources only…"></textarea>
-    </div>
-
-    <!-- Mode tabs -->
-    <div class="panel-section">
-      <p class="section-label">Mode</p>
-      <div class="mode-tabs">
-        <button class="mode-tab active" data-mode="summarize">Summarize</button>
-        <button class="mode-tab" data-mode="outline">Outline</button>
-        <button class="mode-tab" data-mode="draft">Draft</button>
-        <button class="mode-tab" data-mode="sources">Sources</button>
-      </div>
-    </div>
-
-    <button class="btn-run" id="runBtn" onclick="runAgent()">
-      <span id="btnLabel">Run research</span>
-      <span class="btn-arrow">→</span>
-    </button>
-
-    <button class="btn-clear" onclick="clearAll()">Clear workspace</button>
-
-    <!-- Stats -->
-    <div class="stats-grid" id="statsGrid" style="display:none;">
-      <div class="stat">
-        <div class="stat-val" id="statWords">—</div>
-        <div class="stat-lbl">Words</div>
-      </div>
-      <div class="stat">
-        <div class="stat-val" id="statSections">—</div>
-        <div class="stat-lbl">Sections</div>
-      </div>
-      <div class="stat">
-        <div class="stat-val" id="statMode">—</div>
-        <div class="stat-lbl">Mode</div>
-      </div>
+      <a href="/docs" target="_blank" class="docs-link">API docs ↗</a>
     </div>
   </aside>
 
-  <!-- ── Right panel: output ── -->
-  <main class="panel panel-output">
-    <div class="output-topbar">
-      <span class="output-label" id="outputLabel">Output</span>
-      <div class="output-actions" id="outputActions" style="opacity:0;">
-        <button class="action-btn" onclick="copyOutput()">Copy</button>
-        <button class="action-btn" onclick="downloadOutput()">Download .md</button>
+  <main class="main">
+    <div class="main-header">
+      <div>
+        <h1 class="main-title" id="modeTitle">Summarize a topic</h1>
+        <p class="main-sub" id="modeSub">Get a clear, structured overview of any research topic.</p>
+      </div>
+      <div class="header-actions" id="headerActions" style="opacity:0;pointer-events:none;">
+        <button class="pill-btn" onclick="copyOutput()">Copy</button>
+        <button class="pill-btn" onclick="downloadOutput()">Download .md</button>
+        <button class="pill-btn pill-ghost" onclick="clearAll()">Clear</button>
       </div>
     </div>
 
-    <!-- Empty state -->
-    <div class="empty-state" id="emptyState">
-      <div class="empty-glyph">⬡</div>
-      <p class="empty-title">Ready to research</p>
-      <p class="empty-sub">Enter a topic, choose a mode,<br/>and hit Run research.</p>
+    <div class="output-area">
+      <div class="empty-state" id="emptyState">
+        <div class="empty-orb"></div>
+        <p class="empty-title">What are you researching?</p>
+        <p class="empty-sub">Type your topic below and press Enter.</p>
+        <div class="suggestion-chips">
+          <button class="chip" onclick="fillSuggestion('The role of AI in modern healthcare')">AI in healthcare</button>
+          <button class="chip" onclick="fillSuggestion('Climate change and food security in Africa')">Climate &amp; food security</button>
+          <button class="chip" onclick="fillSuggestion('Quantum computing fundamentals')">Quantum computing</button>
+          <button class="chip" onclick="fillSuggestion('The psychology of social media addiction')">Social media psychology</button>
+          <button class="chip" onclick="fillSuggestion('Renewable energy transition challenges')">Renewable energy</button>
+          <button class="chip" onclick="fillSuggestion('CRISPR gene editing ethics and applications')">CRISPR ethics</button>
+        </div>
+      </div>
+
+      <div class="loading-state" id="loadingState" style="display:none;">
+        <div class="glow-loader">
+          <div class="glow-ring"></div>
+          <div class="glow-ring r2"></div>
+          <div class="glow-ring r3"></div>
+        </div>
+        <p class="loading-label" id="loadingLabel">Researching…</p>
+      </div>
+
+      <div class="error-state" id="errorState" style="display:none;"></div>
+
+      <div class="result-area" id="resultArea" style="display:none;">
+        <div class="result-meta">
+          <span class="result-badge" id="resultBadge">Summary</span>
+          <span class="result-stats" id="resultStats"></span>
+        </div>
+        <div class="result-body" id="resultBody"></div>
+      </div>
     </div>
 
-    <!-- Loading -->
-    <div class="loading-state" id="loadingState" style="display:none;">
-      <div class="loader-ring"></div>
-      <p class="loader-text" id="loaderText">Thinking…</p>
-    </div>
-
-    <!-- Error -->
-    <div class="error-state" id="errorState" style="display:none;"></div>
-
-    <!-- Result -->
-    <div class="result-body" id="resultBody" style="display:none;"></div>
-
-    <!-- Chat panel (always visible at bottom when in chat mode) -->
-    <div class="chat-panel" id="chatPanel" style="display:none;">
-      <div class="chat-messages" id="chatMessages"></div>
-      <div class="chat-input-row">
-        <textarea class="chat-input" id="chatInput" placeholder="Ask a follow-up question…" rows="2"></textarea>
-        <button class="chat-send" onclick="sendChat()">Send</button>
+    <div class="input-bar">
+      <div class="input-wrap">
+        <textarea id="topicInput" class="topic-input" placeholder="Enter your research topic…" rows="1"></textarea>
+        <button class="send-btn" id="sendBtn" onclick="runAgent()">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+        </button>
+      </div>
+      <div class="input-hints">
+        <span>Press <kbd>Enter</kbd> to send &nbsp;·&nbsp; <kbd>Shift+Enter</kbd> for new line</span>
+        <span id="charCount">0 / 500</span>
       </div>
     </div>
   </main>
 
-  <!-- ── Far right: quick reference ── -->
-  <aside class="panel panel-ref">
-    <p class="section-label">Quick reference</p>
-
-    <div class="ref-card">
-      <div class="ref-icon">∑</div>
-      <div>
-        <p class="ref-title">Summarize</p>
-        <p class="ref-desc">Get a clear overview of any topic, paper, or concept — tailored to your level.</p>
-      </div>
+  <aside class="chat-sidebar" id="chatSidebar" style="opacity:0;pointer-events:none;">
+    <div class="chat-header">
+      <span class="chat-title">Follow-up</span>
+      <button class="chat-clear-btn" onclick="clearChat()">Clear</button>
     </div>
-
-    <div class="ref-card">
-      <div class="ref-icon">≡</div>
-      <div>
-        <p class="ref-title">Outline</p>
-        <p class="ref-desc">Generate a full hierarchical outline with sections, subsections, and key arguments.</p>
-      </div>
-    </div>
-
-    <div class="ref-card">
-      <div class="ref-icon">✎</div>
-      <div>
-        <p class="ref-title">Draft</p>
-        <p class="ref-desc">Get a well-written draft of any section — intro, methodology, conclusion, and more.</p>
-      </div>
-    </div>
-
-    <div class="ref-card">
-      <div class="ref-icon">⌗</div>
-      <div>
-        <p class="ref-title">Sources</p>
-        <p class="ref-desc">Discover relevant journals, databases, and example citations in your preferred style.</p>
-      </div>
-    </div>
-
-    <hr class="ref-divider"/>
-
-    <p class="section-label" style="margin-bottom:8px;">Powered by</p>
-    <p class="ref-model">Claude Sonnet 4<br/><span>Anthropic</span></p>
-
-    <p class="section-label" style="margin-top:1.5rem;margin-bottom:8px;">API endpoints</p>
-    <div class="endpoint-list">
-      <code>POST /api/summarize</code>
-      <code>POST /api/outline</code>
-      <code>POST /api/draft</code>
-      <code>POST /api/sources</code>
-      <code>POST /api/chat</code>
-      <code>GET  /api/health</code>
+    <div class="chat-messages" id="chatMessages"></div>
+    <div class="chat-input-wrap">
+      <textarea id="chatInput" class="chat-input" placeholder="Ask a follow-up…" rows="2"></textarea>
+      <button class="chat-send-btn" onclick="sendChat()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+      </button>
     </div>
   </aside>
 
 </div>
-
 <script src="/static/js/app.js"></script>
 </body>
 </html>

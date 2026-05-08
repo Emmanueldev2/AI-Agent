@@ -1,30 +1,69 @@
 /* ── Glow.ai — Frontend App ── */
 
 let currentMode = 'summarize';
-let chatHistory  = [];
-let lastOutput   = '';
+let chatHistory = [];
+let lastOutput  = '';
 
-const LOADER_LABELS = {
-  summarize: 'Summarising topic…',
-  outline:   'Building outline…',
-  draft:     'Drafting section…',
-  sources:   'Finding sources…',
-  chat:      'Thinking…',
+const MODE_CONFIG = {
+  summarize: {
+    title:   'Summarize a topic',
+    sub:     'Get a clear, structured overview of any research topic.',
+    badge:   'Summary',
+    loader:  'Summarizing…',
+    endpoint: '/api/summarize',
+  },
+  outline: {
+    title:   'Generate a research outline',
+    sub:     'Build a full hierarchical outline with sections and key arguments.',
+    badge:   'Outline',
+    loader:  'Building outline…',
+    endpoint: '/api/outline',
+  },
+  draft: {
+    title:   'Draft a section',
+    sub:     'Get a well-written academic draft of any paper section.',
+    badge:   'Draft',
+    loader:  'Drafting…',
+    endpoint: '/api/draft',
+  },
+  sources: {
+    title:   'Find sources & citations',
+    sub:     'Discover relevant journals, databases, and formatted citations.',
+    badge:   'Sources',
+    loader:  'Finding sources…',
+    endpoint: '/api/sources',
+  },
 };
 
-const MODE_OUTPUT_LABELS = {
-  summarize: 'Summary',
-  outline:   'Research Outline',
-  draft:     'Draft',
-  sources:   'Sources & Citations',
-};
-
-// ── Init ──────────────────────────────────────────────────────────────────────
+// ── Init ─────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   checkHealth();
-  setupModeTabs();
 
-  document.getElementById('chatInput').addEventListener('keydown', (e) => {
+  // Nav tabs
+  document.querySelectorAll('.nav-item').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentMode = btn.dataset.mode;
+      const cfg = MODE_CONFIG[currentMode];
+      document.getElementById('modeTitle').textContent = cfg.title;
+      document.getElementById('modeSub').textContent   = cfg.sub;
+    });
+  });
+
+  // Topic input — auto-resize + char count + Enter to send
+  const input = document.getElementById('topicInput');
+  input.addEventListener('input', () => {
+    input.style.height = 'auto';
+    input.style.height = Math.min(input.scrollHeight, 120) + 'px';
+    document.getElementById('charCount').textContent = `${input.value.length} / 500`;
+  });
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); runAgent(); }
+  });
+
+  // Chat input — Enter to send
+  document.getElementById('chatInput').addEventListener('keydown', e => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(); }
   });
 });
@@ -49,48 +88,29 @@ async function checkHealth() {
   }
 }
 
-// ── Mode tabs ─────────────────────────────────────────────────────────────────
-function setupModeTabs() {
-  document.querySelectorAll('.mode-tab').forEach(tab => {
-    tab.addEventListener('click', () => {
-      document.querySelectorAll('.mode-tab').forEach(t => t.classList.remove('active'));
-      tab.classList.add('active');
-      currentMode = tab.dataset.mode;
-      toggleModeFields(currentMode);
-    });
-  });
-}
-
-function toggleModeFields(mode) {
-  document.getElementById('paperTypeRow').style.display = mode === 'outline' ? 'flex' : 'none';
-  document.getElementById('draftRow').style.display     = mode === 'draft'   ? 'flex' : 'none';
-}
-
 // ── Run agent ─────────────────────────────────────────────────────────────────
 async function runAgent() {
-  const topic = document.getElementById('topic').value.trim();
-  if (!topic) { showError('Please enter a research topic first.'); return; }
+  const input = document.getElementById('topicInput');
+  const topic = input.value.trim();
+  if (!topic) { input.focus(); return; }
 
-  const level    = document.getElementById('level').value;
-  const citation = document.getElementById('citation').value;
-  const btn      = document.getElementById('runBtn');
+  const cfg = MODE_CONFIG[currentMode];
+  const btn = document.getElementById('sendBtn');
 
-  showLoading(LOADER_LABELS[currentMode]);
+  showLoading(cfg.loader);
   btn.disabled = true;
 
-  let endpoint = `/api/${currentMode}`;
-  let body = { topic, level, citation_style: citation };
-
-  if (currentMode === 'outline') {
-    body.paper_type = document.getElementById('paperType').value;
-  }
-  if (currentMode === 'draft') {
-    body.section = document.getElementById('section').value;
-    body.context = document.getElementById('context').value.trim();
-  }
+  const body = {
+    topic,
+    level: 'undergraduate',
+    citation_style: 'APA',
+    paper_type: 'research paper',
+    section: 'Introduction',
+    context: '',
+  };
 
   try {
-    const res  = await fetch(endpoint, {
+    const res  = await fetch(cfg.endpoint, {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify(body),
@@ -99,8 +119,8 @@ async function runAgent() {
     if (!res.ok) throw new Error(data.detail || 'Request failed');
 
     lastOutput = data.result;
-    showResult(data.result, MODE_OUTPUT_LABELS[currentMode] || 'Output');
-    updateStats(data.result, currentMode);
+    chatHistory = [];
+    showResult(data.result, cfg.badge);
 
   } catch (err) {
     showError(err.message);
@@ -109,15 +129,25 @@ async function runAgent() {
   }
 }
 
+// ── Suggestion chips ──────────────────────────────────────────────────────────
+function fillSuggestion(text) {
+  const input = document.getElementById('topicInput');
+  input.value = text;
+  input.style.height = 'auto';
+  input.style.height = Math.min(input.scrollHeight, 120) + 'px';
+  document.getElementById('charCount').textContent = `${text.length} / 500`;
+  runAgent();
+}
+
 // ── Chat ──────────────────────────────────────────────────────────────────────
 async function sendChat() {
   const input = document.getElementById('chatInput');
   const msg   = input.value.trim();
   if (!msg) return;
-
   input.value = '';
+
   chatHistory.push({ role: 'user', content: msg });
-  appendChatMsg('user', msg);
+  appendBubble('user', msg);
 
   try {
     const res  = await fetch('/api/chat', {
@@ -127,76 +157,80 @@ async function sendChat() {
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.detail || 'Chat failed');
-
     chatHistory.push({ role: 'assistant', content: data.result });
-    appendChatMsg('assistant', data.result);
+    appendBubble('assistant', data.result);
   } catch (err) {
-    appendChatMsg('assistant', `Error: ${err.message}`);
+    appendBubble('assistant', `Error: ${err.message}`);
   }
 }
 
-function appendChatMsg(role, text) {
-  const msgs = document.getElementById('chatMessages');
+function appendBubble(role, text) {
+  const wrap = document.getElementById('chatMessages');
   const div  = document.createElement('div');
-  div.className = `chat-msg ${role}`;
+  div.className = `chat-bubble ${role}`;
   div.textContent = text;
-  msgs.appendChild(div);
-  msgs.scrollTop = msgs.scrollHeight;
+  wrap.appendChild(div);
+  wrap.scrollTop = wrap.scrollHeight;
+}
+
+function clearChat() {
+  document.getElementById('chatMessages').innerHTML = '';
+  chatHistory = [];
 }
 
 // ── UI state helpers ───────────────────────────────────────────────────────────
 function showLoading(label) {
-  hide('emptyState'); hide('errorState'); hide('resultBody');
-  document.getElementById('chatPanel').style.display = 'none';
-  document.getElementById('outputActions').style.opacity = '0';
-  document.getElementById('loaderText').textContent = label;
-  show('loadingState');
+  hide('emptyState'); hide('errorState'); hide('resultArea');
+  document.getElementById('loadingLabel').textContent = label;
+  showFlex('loadingState');
+  document.getElementById('headerActions').style.opacity = '0';
+  document.getElementById('headerActions').style.pointerEvents = 'none';
+  document.getElementById('chatSidebar').style.opacity = '0';
+  document.getElementById('chatSidebar').style.pointerEvents = 'none';
 }
 
-function showResult(markdown, label) {
+function showResult(markdown, badge) {
   hide('emptyState'); hide('loadingState'); hide('errorState');
-  document.getElementById('outputLabel').textContent = label;
-  document.getElementById('resultBody').innerHTML = renderMarkdown(markdown);
-  document.getElementById('outputActions').style.opacity = '1';
-  show('resultBody');
-  document.getElementById('chatPanel').style.display = 'flex';
+  const words = markdown.trim().split(/\s+/).length;
+  document.getElementById('resultBadge').textContent  = badge;
+  document.getElementById('resultStats').textContent  = `${words.toLocaleString()} words`;
+  document.getElementById('resultBody').innerHTML     = renderMarkdown(markdown);
+  showBlock('resultArea');
+  document.getElementById('headerActions').style.opacity      = '1';
+  document.getElementById('headerActions').style.pointerEvents = 'auto';
+  document.getElementById('chatSidebar').style.opacity        = '1';
+  document.getElementById('chatSidebar').style.pointerEvents  = 'auto';
 }
 
 function showError(msg) {
-  hide('emptyState'); hide('loadingState'); hide('resultBody');
+  hide('emptyState'); hide('loadingState'); hide('resultArea');
   document.getElementById('errorState').textContent = `Error: ${msg}`;
-  show('errorState');
+  showBlock('errorState');
 }
 
 function clearAll() {
-  hide('errorState'); hide('resultBody'); hide('loadingState');
-  hide('chatPanel');
-  show('emptyState');
-  document.getElementById('outputLabel').textContent = 'Output';
-  document.getElementById('outputActions').style.opacity = '0';
-  document.getElementById('statsGrid').style.display = 'none';
-  document.getElementById('chatMessages').innerHTML = '';
-  chatHistory = []; lastOutput = '';
+  hide('loadingState'); hide('errorState'); hide('resultArea');
+  showFlex('emptyState');
+  document.getElementById('topicInput').value = '';
+  document.getElementById('topicInput').style.height = 'auto';
+  document.getElementById('charCount').textContent = '0 / 500';
+  document.getElementById('headerActions').style.opacity = '0';
+  document.getElementById('headerActions').style.pointerEvents = 'none';
+  document.getElementById('chatSidebar').style.opacity = '0';
+  document.getElementById('chatSidebar').style.pointerEvents = 'none';
+  clearChat();
+  lastOutput = '';
 }
 
-function show(id) { document.getElementById(id).style.display = 'flex'; }
-function hide(id) { document.getElementById(id).style.display = 'none'; }
-
-// ── Stats ─────────────────────────────────────────────────────────────────────
-function updateStats(text, mode) {
-  const words    = text.trim().split(/\s+/).length;
-  const sections = (text.match(/^#{1,3} /gm) || []).length;
-  document.getElementById('statWords').textContent    = words.toLocaleString();
-  document.getElementById('statSections').textContent = sections || '—';
-  document.getElementById('statMode').textContent     = mode.charAt(0).toUpperCase() + mode.slice(1);
-  document.getElementById('statsGrid').style.display  = 'grid';
-}
+function hide(id)      { document.getElementById(id).style.display = 'none'; }
+function showFlex(id)  { document.getElementById(id).style.display = 'flex'; }
+function showBlock(id) { document.getElementById(id).style.display = 'block'; }
 
 // ── Copy & download ───────────────────────────────────────────────────────────
 async function copyOutput() {
   if (!lastOutput) return;
   await navigator.clipboard.writeText(lastOutput);
-  const btn = document.querySelector('.action-btn');
+  const btn = document.querySelector('.pill-btn');
   const orig = btn.textContent;
   btn.textContent = 'Copied!';
   setTimeout(() => btn.textContent = orig, 1500);
@@ -204,37 +238,33 @@ async function copyOutput() {
 
 function downloadOutput() {
   if (!lastOutput) return;
-  const topic = document.getElementById('topic').value.trim().slice(0, 40).replace(/\s+/g, '-') || 'research';
-  const blob  = new Blob([lastOutput], { type: 'text/markdown' });
-  const url   = URL.createObjectURL(blob);
-  const a     = document.createElement('a');
-  a.href = url; a.download = `glpw-${currentMode}-${topic}.md`;
+  const slug = document.getElementById('topicInput').value.trim().slice(0, 40).replace(/\s+/g, '-') || 'research';
+  const blob = new Blob([lastOutput], { type: 'text/markdown' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = `glow-${currentMode}-${slug}.md`;
   a.click(); URL.revokeObjectURL(url);
 }
 
-// ── Markdown renderer (lightweight, no dependencies) ─────────────────────────
+// ── Markdown renderer ─────────────────────────────────────────────────────────
 function renderMarkdown(md) {
   let html = md
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
     .replace(/^### (.+)$/gm,  '<h3>$1</h3>')
     .replace(/^## (.+)$/gm,   '<h2>$1</h2>')
     .replace(/^# (.+)$/gm,    '<h1>$1</h1>')
-    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\*(.+?)\*/g,     '<em>$1</em>')
-    .replace(/`(.+?)`/g,       '<code>$1</code>')
-    .replace(/^> (.+)$/gm,     '<blockquote>$1</blockquote>')
-    .replace(/^---$/gm,        '<hr/>')
-    .replace(/^\d+\. (.+)$/gm, '<li>$1</li>')
-    .replace(/^[-*] (.+)$/gm,  '<li>$1</li>');
+    .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g,    '<em>$1</em>')
+    .replace(/`(.+?)`/g,      '<code>$1</code>')
+    .replace(/^> (.+)$/gm,    '<blockquote>$1</blockquote>')
+    .replace(/^---$/gm,       '<hr/>')
+    .replace(/^\d+\. (.+)$/gm,'<li>$1</li>')
+    .replace(/^[-*] (.+)$/gm, '<li>$1</li>');
 
-  // Wrap consecutive <li> in <ul> or <ol>
-  html = html.replace(/(<li>.*<\/li>\n?)+/g, m => `<ul>${m}</ul>`);
-
-  // Paragraphs: lines not already wrapped
+  html = html.replace(/(<li>[\s\S]+?<\/li>\n?)+/g, m => `<ul>${m}</ul>`);
   html = html.split('\n').map(line => {
-    if (/^<(h[1-3]|ul|ol|li|blockquote|hr)/.test(line.trim()) || line.trim() === '') return line;
+    if (/^<(h[1-3]|ul|ol|li|blockquote|hr)/.test(line.trim()) || !line.trim()) return line;
     return `<p>${line}</p>`;
   }).join('\n');
-
   return html;
 }
