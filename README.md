@@ -1,4 +1,4 @@
-# Glpw.ai — Student Research Agent
+# Glow.ai — Student Research Agent
 
 An MVP AI research assistant for students at all levels, powered by **Claude (Anthropic)**.  
 Built with **FastAPI** (Python backend) + a custom dashboard frontend.
