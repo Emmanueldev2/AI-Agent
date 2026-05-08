@@ -1,35 +1,60 @@
-# Email Subject Line Agent
+# Glpw.ai — Student Research Agent
 
-An MVP AI agent that generates high-converting email subject lines using the Claude API, with optional Make.com automation support.
+An MVP AI research assistant for students at all levels, powered by **Claude (Anthropic)**.  
+Built with **FastAPI** (Python backend) + a custom dashboard frontend.
+
+---
+
+## Features
+
+| Mode | What it does |
+|------|-------------|
+| **Summarize** | Clear topic overviews tailored to student level |
+| **Outline** | Hierarchical research outlines with sections & subsections |
+| **Draft** | Academically-styled drafts of any paper section |
+| **Sources** | Relevant journals, databases, and example citations |
+| **Chat** | Multi-turn follow-up conversation on any topic |
 
 ---
 
 ## Quick Start
 
-### 1. Install dependencies
+### 1. Create a virtual environment
 ```bash
-npm install
+python -m venv venv
+
+# macOS / Linux
+source venv/bin/activate
+
+# Windows
+venv\Scripts\activate
 ```
 
-### 2. Add your API key
+### 2. Install dependencies
+```bash
+pip install -r requirements.txt
+```
+
+### 3. Add your API key
 Open `.env` and replace the placeholder:
 ```
 ANTHROPIC_API_KEY=your_actual_key_here
 ```
 Get your key at → https://console.anthropic.com
 
-### 3. Run the server
+### 4. Run the server
 ```bash
-# Production
-npm start
-
-# Development (auto-restarts on file changes)
-npm run dev
+python main.py
 ```
 
-### 4. Open in browser
+### 5. Open the dashboard
 ```
-http://localhost:3000
+http://localhost:8000
+```
+
+### 6. Explore the auto-generated API docs
+```
+http://localhost:8000/docs
 ```
 
 ---
@@ -37,71 +62,87 @@ http://localhost:3000
 ## Project Structure
 
 ```
-email-agent/
-├── public/
-│   └── index.html        # Frontend UI
-├── src/
-│   └── server.js         # Express backend + Claude API calls
-├── .env                  # Your API keys (never commit this)
+glpw-ai/
+├── main.py               # FastAPI app — routes, lifespan, middleware
+├── glpw_agent.py         # Core AI agent class (GlpwAgent)
+├── requirements.txt
+├── .env                  # API keys (never commit this)
 ├── .gitignore
-├── package.json
-└── README.md
+├── templates/
+│   └── index.html        # Dashboard HTML (served by Jinja2)
+└── static/
+    ├── css/
+    │   └── style.css     # Dashboard styles
+    └── js/
+        └── app.js        # Frontend logic
 ```
 
 ---
 
 ## API Endpoints
 
-| Method | Route | Description |
-|--------|-------|-------------|
-| GET | `/api/health` | Check server + API key status |
-| POST | `/api/generate` | Generate subject lines via Claude |
-| POST | `/api/send-to-make` | Forward results to Make.com webhook |
+All endpoints accept and return JSON.
 
-### POST `/api/generate` — Request body
+### `GET /api/health`
+Returns server and agent status.
+
+### `POST /api/summarize`
 ```json
 {
-  "campaign_brief": "Promote our new eco-friendly water bottle",
-  "audience_demographics": "Age 18-30, environmentally conscious",
-  "tone": "compelling and friendly"
+  "topic": "The impact of microplastics on marine ecosystems",
+  "level": "undergraduate",
+  "citation_style": "APA"
 }
 ```
 
-### POST `/api/generate` — Response
+### `POST /api/outline`
 ```json
 {
-  "result": [
-    "Go Green Today: Get Your Eco-Bottle!",
-    "Hydrate Better. Act Now.",
-    "Your Planet-Friendly Bottle Awaits",
-    "Sip Sustainably: Shop Now",
-    "Join the Eco Movement Today"
+  "topic": "Climate change and food security",
+  "level": "postgraduate",
+  "citation_style": "Harvard",
+  "paper_type": "thesis"
+}
+```
+
+### `POST /api/draft`
+```json
+{
+  "topic": "CRISPR gene editing in medicine",
+  "level": "undergraduate",
+  "section": "Introduction",
+  "citation_style": "APA",
+  "context": "Focus on ethical considerations, 2018–2024 sources"
+}
+```
+
+### `POST /api/sources`
+```json
+{
+  "topic": "Artificial intelligence in mental health diagnosis",
+  "level": "postgraduate",
+  "citation_style": "APA"
+}
+```
+
+### `POST /api/chat`
+```json
+{
+  "messages": [
+    { "role": "user", "content": "What databases should I use for psychology research?" },
+    { "role": "assistant", "content": "For psychology research I recommend..." },
+    { "role": "user", "content": "Which one has the most peer-reviewed journals?" }
   ]
 }
 ```
 
 ---
 
-## Make.com Integration
-
-1. Create a scenario in Make.com with a **Custom Webhook** trigger
-2. Copy the webhook URL
-3. Paste it into the webhook field in the UI (or set `MAKE_WEBHOOK_URL` in `.env`)
-4. Click **Send to Make** after generating — results are forwarded automatically
-
-The payload sent to Make includes:
-- `campaign_brief`
-- `audience`
-- `tone`
-- `subject_lines` (array of 5)
-- `sent_at` (ISO timestamp)
-
----
-
 ## Environment Variables
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `ANTHROPIC_API_KEY` | ✅ Yes | Your Anthropic API key |
-| `MAKE_WEBHOOK_URL` | Optional | Default Make.com webhook URL |
-| `PORT` | Optional | Server port (default: 3000) |
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `ANTHROPIC_API_KEY` | ✅ Yes | — | Your Anthropic API key |
+| `APP_HOST` | No | `0.0.0.0` | Server host |
+| `APP_PORT` | No | `8000` | Server port |
+| `DEBUG` | No | `true` | Hot-reload on file changes |
