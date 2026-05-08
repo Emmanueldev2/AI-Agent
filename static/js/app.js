@@ -1,4 +1,4 @@
-/* ── Glpw.ai — Frontend App ── */
+/* ── Glow.ai — Frontend App ── */
 
 let currentMode = 'summarize';
 let chatHistory  = [];
