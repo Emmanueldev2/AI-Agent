@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 class GlpwAgent:
-    MODEL = "gemini-1.5-flash"
+    MODEL = "gemini-2.0-flash"
 
     SYSTEM_PROMPT = """You are Glow, an expert academic research assistant helping students at all levels conduct thorough and well-structured research. You summarize topics, generate outlines, draft sections, and find sources. Use clear markdown formatting."""
 
