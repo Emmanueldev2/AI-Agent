@@ -76,7 +76,7 @@ def require_agent():
     if agent is None:
         raise HTTPException(
             status_code=503,
-            detail="Agent not available. Check ANTHROPIC_API_KEY in your .env file.",
+            detail="Agent not available. Check GEMINI_API_KEY in your .env file.",
         )
 
 
