@@ -1,7 +1,7 @@
 """
 main.py
-Glpw.ai — FastAPI web service
-Adapted from the magnus.ai deployment pattern.
+Glow.ai — FastAPI web service
+
 """
 
 import os
