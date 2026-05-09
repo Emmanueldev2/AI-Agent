@@ -9,14 +9,49 @@
   <link rel="stylesheet" href="/static/css/style.css"/>
 </head>
 <body>
+
+<!-- ── Mobile top bar ── -->
+<header class="mobile-topbar">
+  <div class="mobile-brand">Glow<span>.ai</span></div>
+  <div style="display:flex;align-items:center;gap:10px;">
+    <span class="status-dot" id="mobileStatusDot"></span>
+    <button class="hamburger" onclick="openDrawer()">☰</button>
+  </div>
+</header>
+
+<!-- ── Mobile drawer ── -->
+<div class="drawer-overlay" id="drawerOverlay" onclick="closeDrawer()"></div>
+<div class="drawer" id="drawer">
+  <button class="drawer-close" onclick="closeDrawer()">✕</button>
+  <div class="sidebar-top">
+    <div class="brand"><span class="brand-logo">Glow</span><span class="brand-dot">.ai</span></div>
+    <div class="brand-sub">Research Agent</div>
+  </div>
+  <nav class="nav" id="drawerNav">
+    <button class="nav-item active" data-mode="summarize"><span class="nav-icon">◈</span><span>Summarize</span></button>
+    <button class="nav-item" data-mode="outline"><span class="nav-icon">◧</span><span>Outline</span></button>
+    <button class="nav-item" data-mode="draft"><span class="nav-icon">◫</span><span>Draft</span></button>
+    <button class="nav-item" data-mode="sources"><span class="nav-icon">◉</span><span>Sources</span></button>
+  </nav>
+  <div class="sidebar-bottom">
+    <div class="agent-status">
+      <span class="status-dot" id="drawerStatusDot"></span>
+      <span class="status-label" id="drawerStatusText">Connecting…</span>
+    </div>
+    <a href="/docs" target="_blank" class="docs-link">API docs ↗</a>
+  </div>
+</div>
+
+<!-- ── Main app grid ── -->
 <div class="app">
 
+  <!-- Desktop sidebar -->
   <aside class="sidebar">
     <div class="sidebar-top">
       <div class="brand"><span class="brand-logo">Glow</span><span class="brand-dot">.ai</span></div>
       <div class="brand-sub">Research Agent</div>
     </div>
-    <nav class="nav">
+    <nav class="nav" id="desktopNav">
       <button class="nav-item active" data-mode="summarize"><span class="nav-icon">◈</span><span>Summarize</span></button>
       <button class="nav-item" data-mode="outline"><span class="nav-icon">◧</span><span>Outline</span></button>
       <button class="nav-item" data-mode="draft"><span class="nav-icon">◫</span><span>Draft</span></button>
@@ -31,6 +66,7 @@
     </div>
   </aside>
 
+  <!-- Main content -->
   <main class="main">
     <div class="main-header">
       <div>
@@ -76,6 +112,18 @@
           <span class="result-stats" id="resultStats"></span>
         </div>
         <div class="result-body" id="resultBody"></div>
+
+        <!-- Mobile inline chat -->
+        <div class="mobile-chat-panel" id="mobileChatPanel">
+          <p class="mobile-chat-title">Follow-up questions</p>
+          <div class="mobile-chat-messages" id="mobileChatMessages"></div>
+          <div class="chat-input-wrap" style="padding:0;margin-top:8px;">
+            <textarea id="mobileChatInput" class="chat-input" placeholder="Ask a follow-up…" rows="2"></textarea>
+            <button class="chat-send-btn" onclick="sendMobileChat()">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+            </button>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -93,6 +141,7 @@
     </div>
   </main>
 
+  <!-- Desktop chat sidebar -->
   <aside class="chat-sidebar" id="chatSidebar" style="opacity:0;pointer-events:none;">
     <div class="chat-header">
       <span class="chat-title">Follow-up</span>
@@ -108,6 +157,15 @@
   </aside>
 
 </div>
+
+<!-- ── Mobile bottom tab bar ── -->
+<nav class="mobile-modebar">
+  <button class="mobile-tab active" data-mode="summarize"><span class="tab-icon">◈</span>Summarize</button>
+  <button class="mobile-tab" data-mode="outline"><span class="tab-icon">◧</span>Outline</button>
+  <button class="mobile-tab" data-mode="draft"><span class="tab-icon">◫</span>Draft</button>
+  <button class="mobile-tab" data-mode="sources"><span class="tab-icon">◉</span>Sources</button>
+</nav>
+
 <script src="/static/js/app.js"></script>
 </body>
 </html>
