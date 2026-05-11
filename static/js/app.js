@@ -3,24 +3,21 @@
 let currentMode  = 'summarize';
 let chatHistory  = [];
 let lastOutput   = '';
-let uploadedDocs = [];   // { filename, text, chars }
-let docContext   = '';   // combined text from all uploads
-let initialQuery = '';   // Store the initial query for context
-let initialResponse = ''; // Store the initial response for context
+let uploadedDocs = [];
+let docContext   = '';
 
 const MODE_CONFIG = {
-  summarize: { title:'Summarize a topic',           sub:'Get a clear overview — type a topic or upload documents.',          badge:'Summary',  loader:'Summarizing…',      endpoint:'/api/summarize' },
-  outline:   { title:'Generate a research outline', sub:'Build a full hierarchical outline with sections and arguments.',     badge:'Outline',  loader:'Building outline…', endpoint:'/api/outline'   },
-  draft:     { title:'Draft a section',             sub:'Get a well-written academic draft of any paper section.',           badge:'Draft',    loader:'Drafting…',         endpoint:'/api/draft'     },
-  sources:   { title:'Find sources & citations',    sub:'Discover relevant journals, databases, and formatted citations.',   badge:'Sources',  loader:'Finding sources…',  endpoint:'/api/sources'   },
-  analyze:   { title:'Analyze documents',           sub:'Upload documents and get a full academic analysis.',                badge:'Analysis', loader:'Analyzing docs…',   endpoint:'/api/analyze'   },
+  summarize: { title:'Summarize a topic',           sub:'Get a clear overview — type a topic or upload documents.',        badge:'Summary',  loader:'Summarizing…',      endpoint:'/api/summarize' },
+  outline:   { title:'Generate a research outline', sub:'Build a full hierarchical outline with sections and arguments.',   badge:'Outline',  loader:'Building outline…', endpoint:'/api/outline'   },
+  draft:     { title:'Draft a section',             sub:'Get a well-written academic draft of any paper section.',         badge:'Draft',    loader:'Drafting…',         endpoint:'/api/draft'     },
+  sources:   { title:'Find sources & citations',    sub:'Discover relevant journals, databases, and formatted citations.', badge:'Sources',  loader:'Finding sources…',  endpoint:'/api/sources'   },
+  analyze:   { title:'Analyze documents',           sub:'Upload documents and get a full academic analysis.',              badge:'Analysis', loader:'Analyzing docs…',   endpoint:'/api/analyze'   },
 };
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   checkHealth();
   setupAllNavs();
-  setupTheme();
 
   const input = document.getElementById('topicInput');
   input.addEventListener('input', () => {
@@ -32,11 +29,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); runAgent(); }
   });
 
-  document.getElementById('chatInput')?.addEventListener('keydown', e => {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(); }
-  });
-  document.getElementById('mobileChatInput')?.addEventListener('keydown', e => {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMobileChat(); }
+  document.getElementById('followUpInput')?.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendFollowUp(); }
   });
 });
 
@@ -68,35 +62,6 @@ function setupAllNavs() {
   });
 }
 
-function setupTheme() {
-  const toggle = document.getElementById('themeToggle');
-  const icon = document.getElementById('themeIcon');
-  const savedTheme = localStorage.getItem('theme') || 'dark';
-  
-  document.documentElement.setAttribute('data-theme', savedTheme);
-  updateThemeIcon(savedTheme);
-
-  toggle?.addEventListener('click', () => {
-    const currentTheme = document.documentElement.getAttribute('data-theme');
-    const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-    
-    document.documentElement.setAttribute('data-theme', newTheme);
-    localStorage.setItem('theme', newTheme);
-    updateThemeIcon(newTheme);
-  });
-}
-
-function updateThemeIcon(theme) {
-  const icon = document.getElementById('themeIcon');
-  if (!icon) return;
-  
-  if (theme === 'light') {
-    icon.innerHTML = '<circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>';
-  } else {
-    icon.innerHTML = '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>';
-  }
-}
-
 function setMode(mode) {
   currentMode = mode;
   const cfg = MODE_CONFIG[mode];
@@ -111,90 +76,48 @@ function openDrawer()  { document.getElementById('drawer').classList.add('open')
 function closeDrawer() { document.getElementById('drawer').classList.remove('open'); document.getElementById('drawerOverlay').classList.remove('open'); }
 
 // ── File upload ───────────────────────────────────────────────────────────────
-function onDragOver(e) {
-  e.preventDefault();
-  document.getElementById('uploadDrop').classList.add('dragover');
-}
-function onDragLeave(e) {
-  document.getElementById('uploadDrop').classList.remove('dragover');
-}
+function onDragOver(e)  { e.preventDefault(); document.getElementById('uploadDrop').classList.add('dragover'); }
+function onDragLeave(e) { document.getElementById('uploadDrop').classList.remove('dragover'); }
 function onDrop(e) {
   e.preventDefault();
   document.getElementById('uploadDrop').classList.remove('dragover');
   handleFiles([...e.dataTransfer.files]);
 }
-function onFileSelect(e) {
-  handleFiles([...e.target.files]);
-  e.target.value = '';
-}
+function onFileSelect(e) { handleFiles([...e.target.files]); e.target.value = ''; }
 
 async function handleFiles(files) {
   if (!files.length) return;
-
   const formData = new FormData();
   files.forEach(f => formData.append('files', f));
-
-  // Show pending chips
   files.forEach(f => addFileChip(f.name, f.size, 'uploading'));
-
   try {
     const res  = await fetch('/api/upload', { method: 'POST', body: formData });
     const data = await res.json();
-
     if (!res.ok) { showError(data.detail || 'Upload failed'); return; }
-
-    // Replace pending chips with real ones
     clearFileChips();
-    data.documents.forEach(doc => {
-      uploadedDocs.push(doc);
-      addFileChip(doc.filename, doc.chars, 'ok');
-    });
-    if (data.errors?.length) {
-      data.errors.forEach(e => addFileChip(e, 0, 'error'));
-    }
-
+    data.documents.forEach(doc => { uploadedDocs.push(doc); addFileChip(doc.filename, doc.chars, 'ok'); });
+    if (data.errors?.length) data.errors.forEach(e => addFileChip(e, 0, 'error'));
     docContext = data.combined_text;
-
-    // Auto-switch to analyze mode if no topic yet
-    if (!document.getElementById('topicInput').value.trim() && currentMode !== 'analyze') {
-      setMode('analyze');
-    }
-
-  } catch (err) {
-    showError('Upload error: ' + err.message);
-  }
+    if (!document.getElementById('topicInput').value.trim() && currentMode !== 'analyze') setMode('analyze');
+  } catch (err) { showError('Upload error: ' + err.message); }
 }
 
 function addFileChip(name, sizeOrChars, state) {
-  const chips  = document.getElementById('fileChips');
-  const chip   = document.createElement('div');
-  chip.className = `file-chip ${state === 'uploading' ? 'uploading' : state === 'error' ? 'error' : ''}`;
+  const chips = document.getElementById('fileChips');
+  const chip  = document.createElement('div');
+  chip.className = `file-chip${state === 'uploading' ? ' uploading' : state === 'error' ? ' error' : ''}`;
   chip.dataset.name = name;
-
-  const label = state === 'uploading' ? 'uploading…' :
-                state === 'error'     ? 'failed'     :
-                `${(sizeOrChars/1000).toFixed(1)}k chars`;
-
-  chip.innerHTML = `
-    <span class="file-chip-name">${escHtml(name)}</span>
-    <span class="file-chip-size">${label}</span>
-    ${state !== 'uploading' ? `<button class="file-chip-remove" onclick="removeFile('${escAttr(name)}')" title="Remove">✕</button>` : ''}
-  `;
+  const label = state === 'uploading' ? 'uploading…' : state === 'error' ? 'failed' : `${(sizeOrChars/1000).toFixed(1)}k chars`;
+  chip.innerHTML = `<span class="file-chip-name">${escHtml(name)}</span><span class="file-chip-size">${label}</span>${state !== 'uploading' ? `<button class="file-chip-remove" onclick="removeFile('${escAttr(name)}')" title="Remove">✕</button>` : ''}`;
   chips.appendChild(chip);
 }
 
-function clearFileChips() {
-  document.getElementById('fileChips').innerHTML = '';
-}
+function clearFileChips() { document.getElementById('fileChips').innerHTML = ''; }
 
 function removeFile(name) {
   uploadedDocs = uploadedDocs.filter(d => d.filename !== name);
-  document.querySelectorAll('.file-chip').forEach(c => {
-    if (c.dataset.name === name) c.remove();
-  });
-  docContext = uploadedDocs.length
-    ? uploadedDocs.map((d,i) => `[Document ${i+1}: ${d.filename}]\n\n${d.text}`).join('\n\n' + '─'.repeat(40) + '\n\n')
-    : '';
+  document.querySelectorAll('.file-chip').forEach(c => { if (c.dataset.name === name) c.remove(); });
+  docContext = uploadedDocs.length ? uploadedDocs.map((d,i) => `[Document ${i+1}: ${d.filename}]\n\n${d.text}`).join('\n\n' + '─'.repeat(40) + '\n\n') : '';
 }
 
 // ── Run agent ─────────────────────────────────────────────────────────────────
@@ -212,11 +135,10 @@ async function runAgent() {
   btn.disabled = true;
 
   try {
-    let res, data;
-
+    let res;
     if (currentMode === 'analyze') {
       if (!docContext) { showError('Please upload at least one document to analyze.'); btn.disabled = false; return; }
-      res  = await fetch('/api/analyze', {
+      res = await fetch('/api/analyze', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ doc_context: docContext, question: topic }),
       });
@@ -225,28 +147,21 @@ async function runAgent() {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           topic: topic || 'Analyze and summarize the uploaded documents',
-          level: 'undergraduate',
-          citation_style: 'APA',
-          paper_type: 'research paper',
-          section: 'Introduction',
-          context: '',
-          doc_context: docContext,
+          level: 'undergraduate', citation_style: 'APA',
+          paper_type: 'research paper', section: 'Introduction',
+          context: '', doc_context: docContext,
         }),
       });
     }
 
-    data = await res.json();
+    const data = await res.json();
     if (!res.ok) throw new Error(data.detail || 'Request failed');
 
-    lastOutput = data.result;
-    initialQuery = topic || 'Analyze and summarize the uploaded documents';
-    initialResponse = data.result;
-    // Initialize chat history with the initial query and response for context
-    chatHistory = [
-      { role: 'user', content: initialQuery },
-      { role: 'assistant', content: initialResponse }
-    ];
-    showResult(data.result, cfg.badge);
+    lastOutput  = data.result;
+    // Seed chat history with the first AI response so follow-ups have context
+    chatHistory = [{ role: 'user', content: topic || 'Analyze documents' }, { role: 'assistant', content: data.result }];
+
+    showChatThread(topic, data.result, cfg.badge);
 
   } catch (err) {
     showError(err.message);
@@ -264,30 +179,61 @@ function fillSuggestion(text) {
   runAgent();
 }
 
-// ── Chat ──────────────────────────────────────────────────────────────────────
-async function sendChat() {
-  const input = document.getElementById('chatInput');
+// ── Chat thread (main conversation area) ──────────────────────────────────────
+function showChatThread(userTopic, aiResult, badge) {
+  hide('emptyState'); hide('loadingState'); hide('errorState');
+  document.getElementById('resultArea').style.display = 'flex';
+
+  const words    = aiResult.trim().split(/\s+/).length;
+  document.getElementById('resultBadge').textContent = badge;
+  document.getElementById('resultStats').textContent = `${words.toLocaleString()} words`;
+
+  const docBadge = document.getElementById('docBadge');
+  if (docContext && uploadedDocs.length) {
+    docBadge.textContent     = `${uploadedDocs.length} doc${uploadedDocs.length>1?'s':''} attached`;
+    docBadge.style.display   = 'inline-block';
+  } else {
+    docBadge.style.display = 'none';
+  }
+
+  // Build fresh thread
+  const thread = document.getElementById('chatThread');
+  thread.innerHTML = '';
+
+  // User query bubble
+  if (userTopic) thread.appendChild(makeBubble('user', userTopic));
+
+  // AI response bubble
+  const aiBubble = document.createElement('div');
+  aiBubble.className = 'thread-bubble thread-ai';
+  aiBubble.innerHTML = renderMarkdown(aiResult);
+  thread.appendChild(aiBubble);
+
+  setActions(true);
+  thread.scrollTop = thread.scrollHeight;
+}
+
+// ── Follow-up (continues the same thread) ────────────────────────────────────
+async function sendFollowUp() {
+  const input = document.getElementById('followUpInput');
   const msg   = input.value.trim();
   if (!msg) return;
   input.value = '';
-  chatHistory.push({ role: 'user', content: msg });
-  appendBubble('chatMessages', 'user', msg);
-  const reply = await fetchChat();
-  if (reply) { chatHistory.push({ role: 'assistant', content: reply }); appendBubble('chatMessages', 'assistant', reply); }
-}
+  input.style.height = 'auto';
 
-async function sendMobileChat() {
-  const input = document.getElementById('mobileChatInput');
-  const msg   = input.value.trim();
-  if (!msg) return;
-  input.value = '';
-  chatHistory.push({ role: 'user', content: msg });
-  appendBubble('mobileChatMessages', 'user', msg);
-  const reply = await fetchChat();
-  if (reply) { chatHistory.push({ role: 'assistant', content: reply }); appendBubble('mobileChatMessages', 'assistant', reply); }
-}
+  const thread = document.getElementById('chatThread');
 
-async function fetchChat() {
+  // Add user bubble to thread
+  thread.appendChild(makeBubble('user', msg));
+  chatHistory.push({ role: 'user', content: msg });
+
+  // Typing indicator
+  const typing = document.createElement('div');
+  typing.className = 'thread-bubble thread-ai thread-typing';
+  typing.innerHTML = '<span></span><span></span><span></span>';
+  thread.appendChild(typing);
+  thread.scrollTop = thread.scrollHeight;
+
   try {
     const res  = await fetch('/api/chat', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -295,24 +241,36 @@ async function fetchChat() {
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.detail || 'Chat failed');
-    return data.result;
-  } catch (err) { return `Error: ${err.message}`; }
+
+    chatHistory.push({ role: 'assistant', content: data.result });
+    lastOutput = data.result;
+
+    typing.remove();
+    const aiBubble = document.createElement('div');
+    aiBubble.className = 'thread-bubble thread-ai';
+    aiBubble.innerHTML = renderMarkdown(data.result);
+    thread.appendChild(aiBubble);
+    thread.scrollTop = thread.scrollHeight;
+
+  } catch (err) {
+    typing.remove();
+    thread.appendChild(makeBubble('ai-error', `Error: ${err.message}`));
+  }
 }
 
-function appendBubble(containerId, role, text) {
-  const wrap = document.getElementById(containerId);
-  if (!wrap) return;
-  const div  = document.createElement('div');
-  div.className = `chat-bubble ${role}`;
-  div.textContent = text;
-  wrap.appendChild(div);
-  wrap.scrollTop = wrap.scrollHeight;
-}
-
-function clearChat() {
-  document.getElementById('chatMessages').innerHTML = '';
-  document.getElementById('mobileChatMessages').innerHTML = '';
-  chatHistory = [];
+function makeBubble(role, text) {
+  const div = document.createElement('div');
+  if (role === 'user') {
+    div.className   = 'thread-bubble thread-user';
+    div.textContent = text;
+  } else if (role === 'ai-error') {
+    div.className   = 'thread-bubble thread-ai thread-error';
+    div.textContent = text;
+  } else {
+    div.className = 'thread-bubble thread-ai';
+    div.innerHTML = renderMarkdown(text);
+  }
+  return div;
 }
 
 // ── UI states ─────────────────────────────────────────────────────────────────
@@ -320,27 +278,7 @@ function showLoading(label) {
   hide('emptyState'); hide('errorState'); hide('resultArea');
   document.getElementById('loadingLabel').textContent = label;
   showFlex('loadingState');
-  setActions(false); setChatVisible(false);
-}
-
-function showResult(markdown, badge) {
-  hide('emptyState'); hide('loadingState'); hide('errorState');
-  const words = markdown.trim().split(/\s+/).length;
-  document.getElementById('resultBadge').textContent  = badge;
-  document.getElementById('resultStats').textContent  = `${words.toLocaleString()} words`;
-  document.getElementById('resultBody').innerHTML     = renderMarkdown(markdown);
-
-  const docBadge = document.getElementById('docBadge');
-  if (docContext && uploadedDocs.length) {
-    docBadge.textContent = `${uploadedDocs.length} doc${uploadedDocs.length>1?'s':''} attached`;
-    docBadge.style.display = 'inline-block';
-  } else {
-    docBadge.style.display = 'none';
-  }
-
-  showBlock('resultArea');
-  setActions(true); setChatVisible(true);
-  document.getElementById('mobileChatPanel')?.classList.add('visible');
+  setActions(false);
 }
 
 function showError(msg) {
@@ -355,22 +293,16 @@ function clearAll() {
   document.getElementById('topicInput').value = '';
   document.getElementById('topicInput').style.height = 'auto';
   document.getElementById('charCount').textContent = '0 / 500';
-  setActions(false); setChatVisible(false);
-  document.getElementById('mobileChatPanel')?.classList.remove('visible');
-  clearChat();
-  lastOutput = '';
-  initialQuery = '';
-  initialResponse = '';
+  setActions(false);
+  chatHistory = []; lastOutput = '';
 }
 
 function setActions(v) {
   const el = document.getElementById('headerActions');
-  el.style.opacity = v ? '1' : '0'; el.style.pointerEvents = v ? 'auto' : 'none';
+  el.style.opacity = v ? '1' : '0';
+  el.style.pointerEvents = v ? 'auto' : 'none';
 }
-function setChatVisible(v) {
-  const cs = document.getElementById('chatSidebar');
-  if (cs) { cs.style.opacity = v ? '1' : '0'; cs.style.pointerEvents = v ? 'auto' : 'none'; }
-}
+
 function hide(id)      { const el = document.getElementById(id); if (el) el.style.display = 'none'; }
 function showFlex(id)  { const el = document.getElementById(id); if (el) el.style.display = 'flex'; }
 function showBlock(id) { const el = document.getElementById(id); if (el) el.style.display = 'block'; }
@@ -400,8 +332,7 @@ async function downloadPDF() {
   const btn  = document.querySelector('.pill-accent');
   const orig = btn.textContent;
   btn.textContent = 'Generating…';
-  btn.disabled = true;
-
+  btn.disabled    = true;
   try {
     const topic = document.getElementById('topicInput').value.trim() || 'Research Output';
     const res   = await fetch('/api/export/pdf', {
@@ -418,7 +349,7 @@ async function downloadPDF() {
     btn.textContent = 'Downloaded!';
     setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 2000);
   } catch (err) {
-    alert('PDF export failed: ' + err.message + '\n\nMake sure WeasyPrint or ReportLab is installed.');
+    alert('PDF export failed: ' + err.message);
     btn.textContent = orig; btn.disabled = false;
   }
 }

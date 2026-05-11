@@ -19,7 +19,7 @@
   </div>
 </header>
 
-<!-- Mobile drawer overlay -->
+<!-- Mobile drawer -->
 <div class="drawer-overlay" id="drawerOverlay" onclick="closeDrawer()"></div>
 <div class="drawer" id="drawer">
   <button class="drawer-close" onclick="closeDrawer()">✕</button>
@@ -27,7 +27,7 @@
     <div class="brand"><span class="brand-logo">Glow</span><span class="brand-dot">.ai</span></div>
     <div class="brand-sub">Research Agent v2</div>
   </div>
-  <nav class="nav" id="drawerNav">
+  <nav class="nav">
     <button class="nav-item active" data-mode="summarize"><span class="nav-icon">◈</span><span>Summarize</span></button>
     <button class="nav-item" data-mode="outline"><span class="nav-icon">◧</span><span>Outline</span></button>
     <button class="nav-item" data-mode="draft"><span class="nav-icon">◫</span><span>Draft</span></button>
@@ -43,7 +43,7 @@
   </div>
 </div>
 
-<!-- Main app -->
+<!-- App -->
 <div class="app">
 
   <!-- Desktop sidebar -->
@@ -64,19 +64,14 @@
         <span class="status-dot" id="statusDot"></span>
         <span class="status-label" id="statusText">Connecting…</span>
       </div>
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
-        <a href="/docs" target="_blank" class="docs-link">API docs ↗</a>
-        <button class="theme-toggle" id="themeToggle" title="Toggle Light/Dark Mode">
-          <svg id="themeIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
-          </svg>
-        </button>
-      </div>
+      <a href="/docs" target="_blank" class="docs-link">API docs ↗</a>
     </div>
   </aside>
 
-  <!-- Main content -->
+  <!-- Main -->
   <main class="main">
+
+    <!-- Header -->
     <div class="main-header">
       <div>
         <h1 class="main-title" id="modeTitle">Summarize a topic</h1>
@@ -90,7 +85,9 @@
       </div>
     </div>
 
+    <!-- Output area -->
     <div class="output-area">
+
       <!-- Empty state -->
       <div class="empty-state" id="emptyState">
         <div class="empty-orb"></div>
@@ -117,33 +114,42 @@
       <!-- Error -->
       <div class="error-state" id="errorState" style="display:none;"></div>
 
-      <!-- Result -->
+      <!-- Result — chat thread layout -->
       <div class="result-area" id="resultArea" style="display:none;">
-        <div class="result-meta">
+
+        <!-- Thread meta bar -->
+        <div class="thread-meta">
           <span class="result-badge" id="resultBadge">Summary</span>
           <span class="result-stats" id="resultStats"></span>
           <span class="doc-badge" id="docBadge" style="display:none;"></span>
         </div>
-        <div class="result-body" id="resultBody"></div>
 
-        <!-- Mobile inline chat -->
-        <div class="mobile-chat-panel" id="mobileChatPanel">
-          <p class="mobile-chat-title">Follow-up questions</p>
-          <div class="mobile-chat-messages" id="mobileChatMessages"></div>
-          <div class="chat-input-wrap" style="padding:0;margin-top:8px;">
-            <textarea id="mobileChatInput" class="chat-input" placeholder="Ask a follow-up…" rows="2"></textarea>
-            <button class="chat-send-btn" onclick="sendMobileChat()">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
-            </button>
-          </div>
+        <!-- Scrollable chat thread -->
+        <div class="chat-thread" id="chatThread"></div>
+
+        <!-- Follow-up input pinned at bottom of result -->
+        <div class="follow-up-bar">
+          <textarea
+            id="followUpInput"
+            class="follow-up-input"
+            placeholder="Ask a follow-up question…"
+            rows="1"
+          ></textarea>
+          <button class="follow-up-send" onclick="sendFollowUp()">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="22" y1="2" x2="11" y2="13"></line>
+              <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+            </svg>
+          </button>
         </div>
+
       </div>
+
     </div>
 
-    <!-- Input bar with upload -->
+    <!-- Main input bar -->
     <div class="input-bar">
-      <!-- File upload zone -->
-      <div class="upload-zone" id="uploadZone">
+      <div class="upload-zone">
         <div class="upload-drop" id="uploadDrop" ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)">
           <input type="file" id="fileInput" multiple accept=".pdf,.jpg,.jpeg,.png,.txt,.md,.docx" style="display:none;" onchange="onFileSelect(event)"/>
           <button class="upload-btn" onclick="document.getElementById('fileInput').click()">
@@ -151,13 +157,10 @@
             Upload files
           </button>
         </div>
-        <!-- File previews -->
         <div class="file-chips" id="fileChips"></div>
       </div>
-
-      <!-- Text input -->
       <div class="input-wrap">
-        <textarea id="topicInput" class="topic-input" placeholder="Enter your research topic" rows="1"></textarea>
+        <textarea id="topicInput" class="topic-input" placeholder="Enter your research topic…" rows="1"></textarea>
         <button class="send-btn" id="sendBtn" onclick="runAgent()">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
         </button>
@@ -167,22 +170,8 @@
         <span id="charCount">0 / 500</span>
       </div>
     </div>
-  </main>
 
-  <!-- Desktop chat sidebar -->
-  <aside class="chat-sidebar" id="chatSidebar" style="opacity:0;pointer-events:none;">
-    <div class="chat-header">
-      <span class="chat-title">Follow-up</span>
-      <button class="chat-clear-btn" onclick="clearChat()">Clear</button>
-    </div>
-    <div class="chat-messages" id="chatMessages"></div>
-    <div class="chat-input-wrap">
-      <textarea id="chatInput" class="chat-input" placeholder="Ask a follow-up…" rows="2"></textarea>
-      <button class="chat-send-btn" onclick="sendChat()">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
-      </button>
-    </div>
-  </aside>
+  </main>
 </div>
 
 <!-- Mobile bottom tab bar -->
