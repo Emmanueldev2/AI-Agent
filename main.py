@@ -6,7 +6,8 @@ Glow.ai — FastAPI web service
 
 import os
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, UploadFile, File
+from typing import List
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
@@ -99,6 +100,33 @@ async def health():
         "model": GlpwAgent.MODEL,
     }
 
+@app.post("/api/upload")
+async def upload_documents(files: List[UploadFile] = File(...)):
+    if not files:
+        raise HTTPException(status_code=400, detail="No files provided.")
+
+    results = []
+    errors  = []
+
+    for file in files:
+        raw = await file.read()
+        if len(raw) > 10 * 1024 * 1024:
+            errors.append(f"{file.filename}: file too large (max 10 MB)")
+            continue
+
+        text = extract_text(file.filename, raw)
+        results.append({"filename": file.filename, "text": text, "chars": len(text)})
+
+    if not results and errors:
+        raise HTTPException(status_code=400, detail="; ".join(errors))
+
+    combined = combine_documents(results)
+    return {
+        "documents": results,
+        "combined_text": combined,
+        "total_chars": len(combined),
+        "errors": errors,
+    }
 
 @app.post("/api/summarize")
 async def summarize(req: ResearchRequest):
