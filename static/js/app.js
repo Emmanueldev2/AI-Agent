@@ -5,6 +5,8 @@ let chatHistory  = [];
 let lastOutput   = '';
 let uploadedDocs = [];   // { filename, text, chars }
 let docContext   = '';   // combined text from all uploads
+let initialQuery = '';   // Store the initial query for context
+let initialResponse = ''; // Store the initial response for context
 
 const MODE_CONFIG = {
   summarize: { title:'Summarize a topic',           sub:'Get a clear overview — type a topic or upload documents.',          badge:'Summary',  loader:'Summarizing…',      endpoint:'/api/summarize' },
@@ -207,7 +209,13 @@ async function runAgent() {
     if (!res.ok) throw new Error(data.detail || 'Request failed');
 
     lastOutput = data.result;
-    chatHistory = [];
+    initialQuery = topic || 'Analyze and summarize the uploaded documents';
+    initialResponse = data.result;
+    // Initialize chat history with the initial query and response for context
+    chatHistory = [
+      { role: 'user', content: initialQuery },
+      { role: 'assistant', content: initialResponse }
+    ];
     showResult(data.result, cfg.badge);
 
   } catch (err) {
@@ -321,6 +329,8 @@ function clearAll() {
   document.getElementById('mobileChatPanel')?.classList.remove('visible');
   clearChat();
   lastOutput = '';
+  initialQuery = '';
+  initialResponse = '';
 }
 
 function setActions(v) {
