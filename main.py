@@ -10,10 +10,13 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
 from pydantic import BaseModel, Field
 from dotenv import load_dotenv
 
 from glpw_agent import GlpwAgent
+from document_parser import extract_text, combine_documents
+from pdf_exporter import generate_pdf
 
 load_dotenv()
 
@@ -162,3 +165,21 @@ if __name__ == "__main__":
         port=int(os.getenv("APP_PORT", 8000)),
         reload=os.getenv("DEBUG", "true").lower() == "true",
     )
+class ExportRequest(BaseModel):
+    markdown: str
+    title: str = "Glow Research"
+
+@app.post("/api/export/pdf")
+async def export_pdf(req: ExportRequest):
+    if not req.markdown:
+        raise HTTPException(status_code=400, detail="No content to export.")
+    try:
+        pdf_bytes = generate_pdf(req.markdown, req.title)
+        safe_title = req.title.replace(" ", "-").lower()[:40]
+        return Response(
+            content=pdf_bytes,
+            media_type="application/pdf",
+            headers={"Content-Disposition": f'attachment; filename="glow-{safe_title}.pdf"'},
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"PDF export failed: {e}")
