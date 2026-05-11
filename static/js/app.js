@@ -1,14 +1,17 @@
-/* ── Glow.ai — Frontend App ── */
+/* ── Glow.ai v2 — Frontend App ── */
 
-let currentMode = 'summarize';
-let chatHistory = [];
-let lastOutput  = '';
+let currentMode  = 'summarize';
+let chatHistory  = [];
+let lastOutput   = '';
+let uploadedDocs = [];   // { filename, text, chars }
+let docContext   = '';   // combined text from all uploads
 
 const MODE_CONFIG = {
-  summarize: { title:'Summarize a topic',          sub:'Get a clear, structured overview of any research topic.',          badge:'Summary',  loader:'Summarizing…',      endpoint:'/api/summarize' },
-  outline:   { title:'Generate a research outline', sub:'Build a full hierarchical outline with sections and key arguments.', badge:'Outline',  loader:'Building outline…', endpoint:'/api/outline'   },
+  summarize: { title:'Summarize a topic',           sub:'Get a clear overview — type a topic or upload documents.',          badge:'Summary',  loader:'Summarizing…',      endpoint:'/api/summarize' },
+  outline:   { title:'Generate a research outline', sub:'Build a full hierarchical outline with sections and arguments.',     badge:'Outline',  loader:'Building outline…', endpoint:'/api/outline'   },
   draft:     { title:'Draft a section',             sub:'Get a well-written academic draft of any paper section.',           badge:'Draft',    loader:'Drafting…',         endpoint:'/api/draft'     },
   sources:   { title:'Find sources & citations',    sub:'Discover relevant journals, databases, and formatted citations.',   badge:'Sources',  loader:'Finding sources…',  endpoint:'/api/sources'   },
+  analyze:   { title:'Analyze documents',           sub:'Upload documents and get a full academic analysis.',                badge:'Analysis', loader:'Analyzing docs…',   endpoint:'/api/analyze'   },
 };
 
 // ── Init ──────────────────────────────────────────────────────────────────────
@@ -16,7 +19,6 @@ document.addEventListener('DOMContentLoaded', () => {
   checkHealth();
   setupAllNavs();
 
-  // Topic input
   const input = document.getElementById('topicInput');
   input.addEventListener('input', () => {
     input.style.height = 'auto';
@@ -27,53 +29,39 @@ document.addEventListener('DOMContentLoaded', () => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); runAgent(); }
   });
 
-  // Desktop chat input
-  const chatInput = document.getElementById('chatInput');
-  if (chatInput) {
-    chatInput.addEventListener('keydown', e => {
-      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(); }
-    });
-  }
-
-  // Mobile chat input
-  const mobileChat = document.getElementById('mobileChatInput');
-  if (mobileChat) {
-    mobileChat.addEventListener('keydown', e => {
-      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMobileChat(); }
-    });
-  }
+  document.getElementById('chatInput')?.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(); }
+  });
+  document.getElementById('mobileChatInput')?.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMobileChat(); }
+  });
 });
 
 // ── Health check ──────────────────────────────────────────────────────────────
 async function checkHealth() {
-  const dots  = ['statusDot','mobileStatusDot','drawerStatusDot'];
-  const texts = ['statusText','drawerStatusText'];
   try {
     const res  = await fetch('/api/health');
     const data = await res.json();
     const ok   = data.agent_ready;
-    dots.forEach(id => {
+    ['statusDot','mobileStatusDot','drawerStatusDot'].forEach(id => {
       const el = document.getElementById(id);
       if (el) { el.classList.toggle('ok', ok); el.classList.toggle('err', !ok); }
     });
-    texts.forEach(id => {
+    ['statusText','drawerStatusText'].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.textContent = ok ? 'Agent ready' : 'No API key';
     });
   } catch {
-    dots.forEach(id => { const el = document.getElementById(id); if (el) el.classList.add('err'); });
+    ['statusDot','mobileStatusDot','drawerStatusDot'].forEach(id => {
+      document.getElementById(id)?.classList.add('err');
+    });
   }
 }
 
-// ── Nav setup (desktop sidebar + mobile drawer + mobile tab bar) ──────────────
+// ── Nav ───────────────────────────────────────────────────────────────────────
 function setupAllNavs() {
-  const allNavBtns = document.querySelectorAll('.nav-item, .mobile-tab');
-  allNavBtns.forEach(btn => {
-    btn.addEventListener('click', () => {
-      const mode = btn.dataset.mode;
-      setMode(mode);
-      closeDrawer();
-    });
+  document.querySelectorAll('.nav-item, .mobile-tab').forEach(btn => {
+    btn.addEventListener('click', () => { setMode(btn.dataset.mode); closeDrawer(); });
   });
 }
 
@@ -82,53 +70,146 @@ function setMode(mode) {
   const cfg = MODE_CONFIG[mode];
   document.getElementById('modeTitle').textContent = cfg.title;
   document.getElementById('modeSub').textContent   = cfg.sub;
-
-  // Update all nav buttons
   document.querySelectorAll('.nav-item, .mobile-tab').forEach(b => {
     b.classList.toggle('active', b.dataset.mode === mode);
   });
 }
 
-// ── Drawer (mobile) ───────────────────────────────────────────────────────────
-function openDrawer() {
-  document.getElementById('drawer').classList.add('open');
-  document.getElementById('drawerOverlay').classList.add('open');
+function openDrawer()  { document.getElementById('drawer').classList.add('open'); document.getElementById('drawerOverlay').classList.add('open'); }
+function closeDrawer() { document.getElementById('drawer').classList.remove('open'); document.getElementById('drawerOverlay').classList.remove('open'); }
+
+// ── File upload ───────────────────────────────────────────────────────────────
+function onDragOver(e) {
+  e.preventDefault();
+  document.getElementById('uploadDrop').classList.add('dragover');
 }
-function closeDrawer() {
-  document.getElementById('drawer').classList.remove('open');
-  document.getElementById('drawerOverlay').classList.remove('open');
+function onDragLeave(e) {
+  document.getElementById('uploadDrop').classList.remove('dragover');
+}
+function onDrop(e) {
+  e.preventDefault();
+  document.getElementById('uploadDrop').classList.remove('dragover');
+  handleFiles([...e.dataTransfer.files]);
+}
+function onFileSelect(e) {
+  handleFiles([...e.target.files]);
+  e.target.value = '';
+}
+
+async function handleFiles(files) {
+  if (!files.length) return;
+
+  const formData = new FormData();
+  files.forEach(f => formData.append('files', f));
+
+  // Show pending chips
+  files.forEach(f => addFileChip(f.name, f.size, 'uploading'));
+
+  try {
+    const res  = await fetch('/api/upload', { method: 'POST', body: formData });
+    const data = await res.json();
+
+    if (!res.ok) { showError(data.detail || 'Upload failed'); return; }
+
+    // Replace pending chips with real ones
+    clearFileChips();
+    data.documents.forEach(doc => {
+      uploadedDocs.push(doc);
+      addFileChip(doc.filename, doc.chars, 'ok');
+    });
+    if (data.errors?.length) {
+      data.errors.forEach(e => addFileChip(e, 0, 'error'));
+    }
+
+    docContext = data.combined_text;
+
+    // Auto-switch to analyze mode if no topic yet
+    if (!document.getElementById('topicInput').value.trim() && currentMode !== 'analyze') {
+      setMode('analyze');
+    }
+
+  } catch (err) {
+    showError('Upload error: ' + err.message);
+  }
+}
+
+function addFileChip(name, sizeOrChars, state) {
+  const chips  = document.getElementById('fileChips');
+  const chip   = document.createElement('div');
+  chip.className = `file-chip ${state === 'uploading' ? 'uploading' : state === 'error' ? 'error' : ''}`;
+  chip.dataset.name = name;
+
+  const label = state === 'uploading' ? 'uploading…' :
+                state === 'error'     ? 'failed'     :
+                `${(sizeOrChars/1000).toFixed(1)}k chars`;
+
+  chip.innerHTML = `
+    <span class="file-chip-name">${escHtml(name)}</span>
+    <span class="file-chip-size">${label}</span>
+    ${state !== 'uploading' ? `<button class="file-chip-remove" onclick="removeFile('${escAttr(name)}')" title="Remove">✕</button>` : ''}
+  `;
+  chips.appendChild(chip);
+}
+
+function clearFileChips() {
+  document.getElementById('fileChips').innerHTML = '';
+}
+
+function removeFile(name) {
+  uploadedDocs = uploadedDocs.filter(d => d.filename !== name);
+  document.querySelectorAll('.file-chip').forEach(c => {
+    if (c.dataset.name === name) c.remove();
+  });
+  docContext = uploadedDocs.length
+    ? uploadedDocs.map((d,i) => `[Document ${i+1}: ${d.filename}]\n\n${d.text}`).join('\n\n' + '─'.repeat(40) + '\n\n')
+    : '';
 }
 
 // ── Run agent ─────────────────────────────────────────────────────────────────
 async function runAgent() {
-  const input = document.getElementById('topicInput');
-  const topic = input.value.trim();
-  if (!topic) { input.focus(); return; }
+  const topic = document.getElementById('topicInput').value.trim();
+  const cfg   = MODE_CONFIG[currentMode];
 
-  const cfg = MODE_CONFIG[currentMode];
+  if (!topic && !docContext) {
+    showError('Please enter a research topic or upload at least one document.');
+    return;
+  }
+
   const btn = document.getElementById('sendBtn');
-
   showLoading(cfg.loader);
   btn.disabled = true;
 
   try {
-    const res  = await fetch(cfg.endpoint, {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        topic,
-        level: 'undergraduate',
-        citation_style: 'APA',
-        paper_type: 'research paper',
-        section: 'Introduction',
-        context: '',
-      }),
-    });
-    const data = await res.json();
+    let res, data;
+
+    if (currentMode === 'analyze') {
+      if (!docContext) { showError('Please upload at least one document to analyze.'); btn.disabled = false; return; }
+      res  = await fetch('/api/analyze', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ doc_context: docContext, question: topic }),
+      });
+    } else {
+      res = await fetch(cfg.endpoint, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          topic: topic || 'Analyze and summarize the uploaded documents',
+          level: 'undergraduate',
+          citation_style: 'APA',
+          paper_type: 'research paper',
+          section: 'Introduction',
+          context: '',
+          doc_context: docContext,
+        }),
+      });
+    }
+
+    data = await res.json();
     if (!res.ok) throw new Error(data.detail || 'Request failed');
+
     lastOutput = data.result;
     chatHistory = [];
     showResult(data.result, cfg.badge);
+
   } catch (err) {
     showError(err.message);
   } finally {
@@ -136,7 +217,6 @@ async function runAgent() {
   }
 }
 
-// ── Suggestions ───────────────────────────────────────────────────────────────
 function fillSuggestion(text) {
   const input = document.getElementById('topicInput');
   input.value = text;
@@ -146,7 +226,7 @@ function fillSuggestion(text) {
   runAgent();
 }
 
-// ── Desktop chat ──────────────────────────────────────────────────────────────
+// ── Chat ──────────────────────────────────────────────────────────────────────
 async function sendChat() {
   const input = document.getElementById('chatInput');
   const msg   = input.value.trim();
@@ -158,7 +238,6 @@ async function sendChat() {
   if (reply) { chatHistory.push({ role: 'assistant', content: reply }); appendBubble('chatMessages', 'assistant', reply); }
 }
 
-// ── Mobile chat ───────────────────────────────────────────────────────────────
 async function sendMobileChat() {
   const input = document.getElementById('mobileChatInput');
   const msg   = input.value.trim();
@@ -173,16 +252,13 @@ async function sendMobileChat() {
 async function fetchChat() {
   try {
     const res  = await fetch('/api/chat', {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ messages: chatHistory }),
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages: chatHistory }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.detail || 'Chat failed');
     return data.result;
-  } catch (err) {
-    return `Error: ${err.message}`;
-  }
+  } catch (err) { return `Error: ${err.message}`; }
 }
 
 function appendBubble(containerId, role, text) {
@@ -206,23 +282,27 @@ function showLoading(label) {
   hide('emptyState'); hide('errorState'); hide('resultArea');
   document.getElementById('loadingLabel').textContent = label;
   showFlex('loadingState');
-  setActions(false);
-  setChatVisible(false);
+  setActions(false); setChatVisible(false);
 }
 
 function showResult(markdown, badge) {
   hide('emptyState'); hide('loadingState'); hide('errorState');
   const words = markdown.trim().split(/\s+/).length;
-  document.getElementById('resultBadge').textContent = badge;
-  document.getElementById('resultStats').textContent = `${words.toLocaleString()} words`;
-  document.getElementById('resultBody').innerHTML    = renderMarkdown(markdown);
-  showBlock('resultArea');
-  setActions(true);
-  setChatVisible(true);
+  document.getElementById('resultBadge').textContent  = badge;
+  document.getElementById('resultStats').textContent  = `${words.toLocaleString()} words`;
+  document.getElementById('resultBody').innerHTML     = renderMarkdown(markdown);
 
-  // Show mobile chat panel
-  const mcp = document.getElementById('mobileChatPanel');
-  if (mcp) mcp.classList.add('visible');
+  const docBadge = document.getElementById('docBadge');
+  if (docContext && uploadedDocs.length) {
+    docBadge.textContent = `${uploadedDocs.length} doc${uploadedDocs.length>1?'s':''} attached`;
+    docBadge.style.display = 'inline-block';
+  } else {
+    docBadge.style.display = 'none';
+  }
+
+  showBlock('resultArea');
+  setActions(true); setChatVisible(true);
+  document.getElementById('mobileChatPanel')?.classList.add('visible');
 }
 
 function showError(msg) {
@@ -237,33 +317,25 @@ function clearAll() {
   document.getElementById('topicInput').value = '';
   document.getElementById('topicInput').style.height = 'auto';
   document.getElementById('charCount').textContent = '0 / 500';
-  setActions(false);
-  setChatVisible(false);
-  const mcp = document.getElementById('mobileChatPanel');
-  if (mcp) mcp.classList.remove('visible');
+  setActions(false); setChatVisible(false);
+  document.getElementById('mobileChatPanel')?.classList.remove('visible');
   clearChat();
   lastOutput = '';
 }
 
-function setActions(visible) {
+function setActions(v) {
   const el = document.getElementById('headerActions');
-  el.style.opacity      = visible ? '1' : '0';
-  el.style.pointerEvents = visible ? 'auto' : 'none';
+  el.style.opacity = v ? '1' : '0'; el.style.pointerEvents = v ? 'auto' : 'none';
 }
-
-function setChatVisible(visible) {
+function setChatVisible(v) {
   const cs = document.getElementById('chatSidebar');
-  if (cs) {
-    cs.style.opacity      = visible ? '1' : '0';
-    cs.style.pointerEvents = visible ? 'auto' : 'none';
-  }
+  if (cs) { cs.style.opacity = v ? '1' : '0'; cs.style.pointerEvents = v ? 'auto' : 'none'; }
 }
-
 function hide(id)      { const el = document.getElementById(id); if (el) el.style.display = 'none'; }
 function showFlex(id)  { const el = document.getElementById(id); if (el) el.style.display = 'flex'; }
 function showBlock(id) { const el = document.getElementById(id); if (el) el.style.display = 'block'; }
 
-// ── Copy & download ───────────────────────────────────────────────────────────
+// ── Export ────────────────────────────────────────────────────────────────────
 async function copyOutput() {
   if (!lastOutput) return;
   await navigator.clipboard.writeText(lastOutput);
@@ -273,7 +345,7 @@ async function copyOutput() {
   setTimeout(() => btn.textContent = orig, 1500);
 }
 
-function downloadOutput() {
+function downloadMarkdown() {
   if (!lastOutput) return;
   const slug = document.getElementById('topicInput').value.trim().slice(0,40).replace(/\s+/g,'-') || 'research';
   const blob = new Blob([lastOutput], { type: 'text/markdown' });
@@ -281,6 +353,34 @@ function downloadOutput() {
   const a    = document.createElement('a');
   a.href = url; a.download = `glow-${currentMode}-${slug}.md`;
   a.click(); URL.revokeObjectURL(url);
+}
+
+async function downloadPDF() {
+  if (!lastOutput) return;
+  const btn  = document.querySelector('.pill-accent');
+  const orig = btn.textContent;
+  btn.textContent = 'Generating…';
+  btn.disabled = true;
+
+  try {
+    const topic = document.getElementById('topicInput').value.trim() || 'Research Output';
+    const res   = await fetch('/api/export/pdf', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ markdown: lastOutput, title: topic }),
+    });
+    if (!res.ok) { const d = await res.json(); throw new Error(d.detail); }
+    const blob = await res.blob();
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    const slug = topic.slice(0,40).replace(/\s+/g,'-').toLowerCase();
+    a.href = url; a.download = `glow-${slug}.pdf`;
+    a.click(); URL.revokeObjectURL(url);
+    btn.textContent = 'Downloaded!';
+    setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 2000);
+  } catch (err) {
+    alert('PDF export failed: ' + err.message + '\n\nMake sure WeasyPrint or ReportLab is installed.');
+    btn.textContent = orig; btn.disabled = false;
+  }
 }
 
 // ── Markdown renderer ─────────────────────────────────────────────────────────
@@ -304,3 +404,6 @@ function renderMarkdown(md) {
   }).join('\n');
   return html;
 }
+
+function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function escAttr(s) { return String(s).replace(/'/g,"\\'"); }
