@@ -1021,3 +1021,151 @@ kbd {
   .follow-up-bar { padding: 0.5rem 1rem 0.75rem; }
   .thread-bubble.thread-user { max-width: 88%; }
 }
+
+/* ════════════════════════════════════════
+   WhatsApp-style input bar
+════════════════════════════════════════ */
+
+/* Remove old input-bar styles from affecting wa-bar */
+.wa-bar {
+  flex-shrink: 0;
+  padding: 10px 16px 14px;
+  background: var(--bg);
+  border-top: 1px solid var(--border);
+  position: relative;
+}
+
+.wa-inner {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  background: var(--bg3);
+  border: 1px solid var(--border2);
+  border-radius: 28px;
+  padding: 8px 8px 8px 14px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.wa-inner:focus-within {
+  border-color: rgba(110,231,183,0.4);
+  box-shadow: 0 0 0 3px rgba(110,231,183,0.06);
+}
+
+/* + button */
+.wa-plus {
+  background: transparent;
+  border: none;
+  color: var(--text3);
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.15s;
+  margin-bottom: 1px;
+}
+.wa-plus:hover { background: rgba(110,231,183,0.1); color: var(--glow); }
+.wa-plus.active { background: rgba(110,231,183,0.15); color: var(--glow); transform: rotate(45deg); }
+
+/* Text input */
+.wa-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 14px;
+  line-height: 1.55;
+  outline: none;
+  resize: none;
+  max-height: 140px;
+  overflow-y: auto;
+  padding: 4px 0;
+  scrollbar-width: none;
+}
+.wa-input::-webkit-scrollbar { display: none; }
+.wa-input::placeholder { color: var(--text3); }
+
+/* Send button */
+.wa-send {
+  background: var(--glow3);
+  border: none;
+  color: #022c22;
+  width: 34px; height: 34px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.15s;
+}
+.wa-send:hover { background: var(--glow2); transform: scale(1.08); }
+.wa-send:active { transform: scale(0.94); }
+.wa-send:disabled { background: var(--bg4); color: var(--text3); cursor: not-allowed; transform: none; }
+
+/* File chips above the bar */
+.file-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.file-chips:empty { display: none; }
+
+/* Upload popup */
+.upload-popup {
+  display: none;
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 16px;
+  background: var(--bg3);
+  border: 1px solid var(--border2);
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  z-index: 200;
+  animation: popUp 0.18s ease both;
+  min-width: 200px;
+}
+.upload-popup.open { display: block; }
+
+@keyframes popUp {
+  from { opacity:0; transform:translateY(8px) scale(0.97); }
+  to   { opacity:1; transform:translateY(0) scale(1); }
+}
+
+.upload-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  background: transparent;
+  border: none;
+  padding: 13px 16px;
+  cursor: pointer;
+  transition: background 0.12s;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+.upload-option:last-child { border-bottom: none; }
+.upload-option:hover { background: rgba(110,231,183,0.07); }
+.upload-option-icon { font-size: 20px; }
+.upload-option span:nth-child(2) { font-size: 13px; font-weight: 500; color: var(--text); flex: 1; }
+.upload-option-sub { font-size: 10px; color: var(--text3); }
+
+/* output area fills remaining space and scrolls */
+.output-area {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1.5rem 2rem;
+  display: flex;
+  flex-direction: column;
+}
+
+@media (max-width: 640px) {
+  .output-area { padding: 1rem; }
+  .wa-bar { padding: 8px 10px 12px; }
+  .upload-popup { left: 10px; }
+}
