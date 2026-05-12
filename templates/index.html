@@ -43,7 +43,7 @@
   </div>
 </div>
 
-<!-- App -->
+<!-- Main app -->
 <div class="app">
 
   <!-- Desktop sidebar -->
@@ -68,7 +68,7 @@
     </div>
   </aside>
 
-  <!-- Main -->
+  <!-- Main content -->
   <main class="main">
 
     <!-- Header -->
@@ -114,42 +114,36 @@
       <!-- Error -->
       <div class="error-state" id="errorState" style="display:none;"></div>
 
-      <!-- Result — chat thread layout -->
+      <!-- ── Chat thread result area ── -->
       <div class="result-area" id="resultArea" style="display:none;">
 
-        <!-- Thread meta bar -->
-        <div class="thread-meta">
+        <!-- Meta bar -->
+        <div class="result-meta">
           <span class="result-badge" id="resultBadge">Summary</span>
           <span class="result-stats" id="resultStats"></span>
           <span class="doc-badge" id="docBadge" style="display:none;"></span>
         </div>
 
-        <!-- Scrollable chat thread -->
+        <!-- The conversation thread — all bubbles go here -->
         <div class="chat-thread" id="chatThread"></div>
 
-        <!-- Follow-up input pinned at bottom of result -->
-        <div class="follow-up-bar">
-          <textarea
-            id="followUpInput"
-            class="follow-up-input"
-            placeholder="Ask a follow-up question…"
-            rows="1"
-          ></textarea>
-          <button class="follow-up-send" onclick="sendFollowUp()">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <line x1="22" y1="2" x2="11" y2="13"></line>
-              <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-            </svg>
-          </button>
-        </div>
-
       </div>
+    </div>
 
+    <!-- Follow-up input bar (shown after first result) -->
+    <div class="follow-up-bar" id="followUpBar" style="display:none;">
+      <div class="input-wrap">
+        <textarea id="followUpInput" class="topic-input" placeholder="Ask a follow-up question…" rows="1"></textarea>
+        <button class="send-btn" onclick="sendFollowUp()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+        </button>
+      </div>
     </div>
 
     <!-- Main input bar -->
     <div class="input-bar">
-      <div class="upload-zone">
+      <!-- Upload zone -->
+      <div class="upload-zone" id="uploadZone">
         <div class="upload-drop" id="uploadDrop" ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)">
           <input type="file" id="fileInput" multiple accept=".pdf,.jpg,.jpeg,.png,.txt,.md,.docx" style="display:none;" onchange="onFileSelect(event)"/>
           <button class="upload-btn" onclick="document.getElementById('fileInput').click()">
@@ -159,6 +153,8 @@
         </div>
         <div class="file-chips" id="fileChips"></div>
       </div>
+
+      <!-- Topic input -->
       <div class="input-wrap">
         <textarea id="topicInput" class="topic-input" placeholder="Enter your research topic…" rows="1"></textarea>
         <button class="send-btn" id="sendBtn" onclick="runAgent()">

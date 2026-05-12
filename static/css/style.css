@@ -926,3 +926,98 @@ kbd {
 }
 .follow-up-send:hover { background: var(--glow2); transform: scale(1.05); }
 .follow-up-send:active { transform: scale(0.96); }
+
+/* ════════════════════════════════════════
+   Chat thread
+════════════════════════════════════════ */
+.result-area {
+  flex-direction: column;
+  gap: 0;
+  animation: fadeUp 0.4s ease both;
+}
+
+.chat-thread {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 1rem 0 1.5rem;
+  overflow-y: auto;
+}
+
+/* User bubble — right aligned */
+.thread-bubble.thread-user {
+  align-self: flex-end;
+  background: rgba(110,231,183,0.10);
+  border: 1px solid rgba(110,231,183,0.22);
+  color: var(--glow);
+  padding: 10px 16px;
+  border-radius: 18px 18px 4px 18px;
+  font-size: 14px;
+  max-width: 75%;
+  line-height: 1.55;
+  word-break: break-word;
+}
+
+/* AI bubble — left aligned, full width */
+.thread-bubble.thread-ai {
+  align-self: flex-start;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 4px 18px 18px 18px;
+  padding: 16px 20px;
+  width: 100%;
+  line-height: 1.85;
+  color: var(--text2);
+}
+
+/* Markdown inside AI bubble */
+.thread-ai h1 { font-family:var(--display); font-size:20px; font-weight:700; color:var(--text); margin:1rem 0 0.5rem; }
+.thread-ai h2 { font-family:var(--display); font-size:16px; font-weight:600; color:var(--text); margin:1rem 0 0.4rem; padding-bottom:4px; border-bottom:1px solid var(--border); }
+.thread-ai h3 { font-size:14px; font-weight:500; color:var(--text2); margin:0.75rem 0 0.3rem; }
+.thread-ai p  { margin:0.5rem 0; color:var(--text2); }
+.thread-ai ul,.thread-ai ol { padding-left:1.4rem; margin:0.5rem 0; }
+.thread-ai li { margin:0.3rem 0; color:var(--text2); }
+.thread-ai strong { color:var(--text); font-weight:500; }
+.thread-ai em { color:var(--text3); font-style:italic; }
+.thread-ai code { font-family:'Courier New',monospace; font-size:12px; background:var(--bg3); border:1px solid var(--border2); padding:2px 6px; border-radius:4px; color:var(--glow); }
+.thread-ai blockquote { border-left:2px solid var(--glow3); padding:0.5rem 1rem; margin:0.75rem 0; color:var(--text3); background:rgba(110,231,183,0.03); border-radius:0 6px 6px 0; }
+.thread-ai hr { border:none; border-top:1px solid var(--border); margin:1rem 0; }
+
+/* Typing indicator */
+.thread-typing {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 14px 20px !important;
+}
+.thread-typing span {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--text3);
+  animation: typingBounce 1.2s ease-in-out infinite;
+}
+.thread-typing span:nth-child(2) { animation-delay: 0.2s; }
+.thread-typing span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes typingBounce {
+  0%,60%,100% { transform: translateY(0); opacity: 0.4; }
+  30%          { transform: translateY(-6px); opacity: 1; }
+}
+
+/* Follow-up input bar */
+.follow-up-bar {
+  flex-shrink: 0;
+  padding: 0.5rem 2.5rem 0.75rem;
+  border-top: 1px solid var(--border);
+  background: var(--bg);
+}
+.follow-up-bar .input-wrap {
+  border-color: rgba(110,231,183,0.2);
+}
+.follow-up-bar .input-wrap:focus-within {
+  border-color: rgba(110,231,183,0.45);
+}
+
+@media (max-width: 640px) {
+  .follow-up-bar { padding: 0.5rem 1rem 0.75rem; }
+  .thread-bubble.thread-user { max-width: 88%; }
+}

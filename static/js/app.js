@@ -158,8 +158,12 @@ async function runAgent() {
     if (!res.ok) throw new Error(data.detail || 'Request failed');
 
     lastOutput  = data.result;
-    // Seed chat history with the first AI response so follow-ups have context
-    chatHistory = [{ role: 'user', content: topic || 'Analyze documents' }, { role: 'assistant', content: data.result }];
+
+    // Seed chat history so follow-ups have full context
+    chatHistory = [
+      { role: 'user',      content: topic || 'Analyze documents' },
+      { role: 'assistant', content: data.result }
+    ];
 
     showChatThread(topic, data.result, cfg.badge);
 
@@ -179,53 +183,50 @@ function fillSuggestion(text) {
   runAgent();
 }
 
-// ── Chat thread (main conversation area) ──────────────────────────────────────
+// ── Show initial chat thread ───────────────────────────────────────────────────
 function showChatThread(userTopic, aiResult, badge) {
   hide('emptyState'); hide('loadingState'); hide('errorState');
   document.getElementById('resultArea').style.display = 'flex';
 
-  const words    = aiResult.trim().split(/\s+/).length;
+  const words = aiResult.trim().split(/\s+/).length;
   document.getElementById('resultBadge').textContent = badge;
   document.getElementById('resultStats').textContent = `${words.toLocaleString()} words`;
 
   const docBadge = document.getElementById('docBadge');
   if (docContext && uploadedDocs.length) {
-    docBadge.textContent     = `${uploadedDocs.length} doc${uploadedDocs.length>1?'s':''} attached`;
-    docBadge.style.display   = 'inline-block';
+    docBadge.textContent   = `${uploadedDocs.length} doc${uploadedDocs.length > 1 ? 's' : ''} attached`;
+    docBadge.style.display = 'inline-block';
   } else {
     docBadge.style.display = 'none';
   }
 
-  // Build fresh thread
+  // Build fresh thread with user query + AI response
   const thread = document.getElementById('chatThread');
   thread.innerHTML = '';
-
-  // User query bubble
   if (userTopic) thread.appendChild(makeBubble('user', userTopic));
+  thread.appendChild(makeBubble('assistant', aiResult));
 
-  // AI response bubble
-  const aiBubble = document.createElement('div');
-  aiBubble.className = 'thread-bubble thread-ai';
-  aiBubble.innerHTML = renderMarkdown(aiResult);
-  thread.appendChild(aiBubble);
+  // Show follow-up input bar
+  document.getElementById('followUpBar').style.display = 'flex';
 
   setActions(true);
   thread.scrollTop = thread.scrollHeight;
 }
 
-// ── Follow-up (continues the same thread) ────────────────────────────────────
+// ── Follow-up — continues the SAME thread ────────────────────────────────────
 async function sendFollowUp() {
-  const input = document.getElementById('followUpInput');
-  const msg   = input.value.trim();
+  const input  = document.getElementById('followUpInput');
+  const msg    = input.value.trim();
   if (!msg) return;
   input.value = '';
   input.style.height = 'auto';
 
   const thread = document.getElementById('chatThread');
 
-  // Add user bubble to thread
+  // Append user bubble
   thread.appendChild(makeBubble('user', msg));
   chatHistory.push({ role: 'user', content: msg });
+  thread.scrollTop = thread.scrollHeight;
 
   // Typing indicator
   const typing = document.createElement('div');
@@ -246,15 +247,14 @@ async function sendFollowUp() {
     lastOutput = data.result;
 
     typing.remove();
-    const aiBubble = document.createElement('div');
-    aiBubble.className = 'thread-bubble thread-ai';
-    aiBubble.innerHTML = renderMarkdown(data.result);
-    thread.appendChild(aiBubble);
+    thread.appendChild(makeBubble('assistant', data.result));
     thread.scrollTop = thread.scrollHeight;
 
   } catch (err) {
     typing.remove();
-    thread.appendChild(makeBubble('ai-error', `Error: ${err.message}`));
+    const errBubble = makeBubble('assistant', `Error: ${err.message}`);
+    errBubble.style.color = 'var(--danger)';
+    thread.appendChild(errBubble);
   }
 }
 
@@ -262,9 +262,6 @@ function makeBubble(role, text) {
   const div = document.createElement('div');
   if (role === 'user') {
     div.className   = 'thread-bubble thread-user';
-    div.textContent = text;
-  } else if (role === 'ai-error') {
-    div.className   = 'thread-bubble thread-ai thread-error';
     div.textContent = text;
   } else {
     div.className = 'thread-bubble thread-ai';
@@ -293,6 +290,8 @@ function clearAll() {
   document.getElementById('topicInput').value = '';
   document.getElementById('topicInput').style.height = 'auto';
   document.getElementById('charCount').textContent = '0 / 500';
+  document.getElementById('followUpBar').style.display = 'none';
+  document.getElementById('chatThread').innerHTML = '';
   setActions(false);
   chatHistory = []; lastOutput = '';
 }

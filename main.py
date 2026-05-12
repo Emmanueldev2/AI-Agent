@@ -29,7 +29,7 @@ async def lifespan(app: FastAPI):
     global agent
     try:
         agent = GlpwAgent()
-        print("✅  Glow.ai v2 agent initialised successfully.")
+        print("Glow.ai agent initialised successfully.")
     except ValueError as e:
         print(f"⚠️   {e}")
         agent = None
@@ -37,7 +37,7 @@ async def lifespan(app: FastAPI):
 
 # ── App ───────────────────────────────────────────────────────────────────────
 app = FastAPI(
-    title="Glow.ai — Student Research Agent v2",
+    title="Glow.ai — Student Research Agent",
     description="AI-powered academic research with document upload and PDF export.",
     version="2.0.0",
     lifespan=lifespan,
