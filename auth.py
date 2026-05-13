@@ -18,13 +18,21 @@ SECRET_KEY        = os.getenv("SECRET_KEY", "glow-ai-secret-change-in-production
 ALGORITHM         = "HS256"
 TOKEN_EXPIRE_DAYS = 30
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# Use a more robust configuration to avoid passlib's bcrypt bug with newer bcrypt versions
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto", bcrypt__ident="2b")
 
 def hash_password(password: str) -> str:
-    return pwd_context.hash(password)
+    # Explicitly truncate to 72 bytes to avoid passlib's internal check bug
+    # and ensure we're passing a string to hash
+    return pwd_context.hash(password[:72])
 
 def verify_password(plain: str, hashed: str) -> bool:
-    return pwd_context.verify(plain, hashed)
+    if not hashed:
+        return False
+    try:
+        return pwd_context.verify(plain[:72], hashed)
+    except Exception:
+        return False
 
 def create_token(user_id: int, email: str) -> str:
     expire = datetime.utcnow() + timedelta(days=TOKEN_EXPIRE_DAYS)
