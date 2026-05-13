@@ -57,20 +57,28 @@ document.getElementById('loginForm').addEventListener('submit', async e => {
   const err = document.getElementById('errorMsg');
   btn.disabled = true; btn.textContent = 'Signing in…'; err.style.display = 'none';
 
-  const res  = await fetch('/api/auth/login', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      email:    document.getElementById('email').value,
-      password: document.getElementById('password').value,
-    }),
-  });
-  const data = await res.json();
+  try {
+    const res  = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email:    document.getElementById('email').value,
+        password: document.getElementById('password').value,
+      }),
+    });
 
-  if (res.ok) {
-    window.location.href = '/';
-  } else {
-    err.textContent = data.detail || 'Login failed';
+    const data = await res.json();
+
+    if (res.ok) {
+      window.location.href = '/';
+    } else {
+      err.textContent = data.detail || 'Login failed';
+      err.style.display = 'block';
+      btn.disabled = false; btn.textContent = 'Sign in';
+    }
+  } catch (err_obj) {
+    console.error(err_obj);
+    err.textContent = 'Connection error. Please check your internet or server logs.';
     err.style.display = 'block';
     btn.disabled = false; btn.textContent = 'Sign in';
   }
