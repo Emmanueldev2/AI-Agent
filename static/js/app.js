@@ -212,7 +212,7 @@ async function runAgent(topic) {
     if (currentMode === 'analyze') {
       res = await fetch('/api/analyze', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ doc_context: docContext, question: topic }),
+        body: JSON.stringify({ doc_context: docContext, question: topic, save: true }),
       });
     } else {
       res = await fetch(cfg.endpoint, {
@@ -222,6 +222,7 @@ async function runAgent(topic) {
           level: 'undergraduate', citation_style: 'APA',
           paper_type: 'research paper', section: 'Introduction',
           context: '', doc_context: docContext,
+          save: true,
         }),
       });
     }
@@ -455,14 +456,30 @@ async function loadUser() {
     const res  = await fetch('/api/auth/me');
     if (!res.ok) return;
     const data = await res.json();
-    document.getElementById('userName').textContent  = data.name;
+    const name = data.name;
+    const initial = name.charAt(0).toUpperCase();
+    
+    document.getElementById('userName').textContent  = name;
     document.getElementById('userEmail').textContent = data.email;
-    document.getElementById('userAvatar').textContent = data.name.charAt(0).toUpperCase();
+    document.getElementById('userAvatar').textContent = initial;
+    
+    // Mobile elements
+    const mName = document.getElementById('mobileUserName');
+    const mAvatar = document.getElementById('mobileUserAvatar');
+    if (mName) mName.textContent = name;
+    if (mAvatar) mAvatar.textContent = initial;
   } catch {}
 }
 
 async function logout() {
-  await fetch('/api/auth/logout', { method: 'POST' });
+  try {
+    await fetch('/api/auth/logout', { method: 'POST' });
+  } catch (err) {
+    console.error('Logout failed:', err);
+  }
+  // Clear all local data
+  localStorage.removeItem('glowCurrentSession');
+  sessionStorage.removeItem('glowHistory');
   window.location.href = '/login';
 }
 
@@ -549,43 +566,16 @@ function saveCurrentSession() {
 }
 
 function restoreLastSession() {
-  try {
-    const raw = localStorage.getItem('glowCurrentSession');
-    if (!raw) return;
-    const s = JSON.parse(raw);
-    // Only restore if less than 24 hours old
-    if (Date.now() - s.timestamp > 24 * 60 * 60 * 1000) {
-      localStorage.removeItem('glowCurrentSession');
-      return;
-    }
-
-    lastOutput  = s.result;
-    chatHistory = s.history || [];
-    sessionStarted = true;
-
-    setMode(s.mode);
-    document.getElementById('resultArea').style.display = 'flex';
-    document.getElementById('resultBadge').textContent  = MODE_CONFIG[s.mode]?.badge || s.mode;
-    document.getElementById('resultStats').textContent  = `${s.result.trim().split(/\s+/).length.toLocaleString()} words`;
-    hide('emptyState');
-
-    const thread = document.getElementById('chatThread');
-    thread.innerHTML = '';
-    chatHistory.forEach(m => {
-      if (m.role === 'user')      appendUserBubble(m.content);
-      else if (m.role === 'assistant') appendAiBubble(m.content);
-    });
-    setActions(true);
-
-  } catch {
-    localStorage.removeItem('glowCurrentSession');
-  }
+  // We'll rely on backend history instead of localStorage for a cleaner experience
+  // but we can keep it for temporary persistence if needed.
+  // For now, let's just clear it to avoid confusion with account-based history.
+  localStorage.removeItem('glowCurrentSession');
 }
 
 // Auto-save after every AI response
 const _origAppendAiBubble = appendAiBubble;
 // We patch the save call inside sendFollowUp and runAgent via a wrapper
 function afterAiResponse() {
-  saveCurrentSession();
+  // saveCurrentSession(); // We can disable this to rely on backend history
   loadHistory();
 }
