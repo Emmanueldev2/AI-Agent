@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 
 from database import get_db, User
 
-SECRET_KEY        = os.getenv("SECRET_KEY", "glow-ai-secret-change-in-production-2025")
+SECRET_KEY        = os.getenv("SECRET_KEY", "glow-ai-super-secret-key-2025-emma")
 ALGORITHM         = "HS256"
 TOKEN_EXPIRE_DAYS = 30
 
