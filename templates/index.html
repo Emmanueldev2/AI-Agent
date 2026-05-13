@@ -35,15 +35,12 @@
     <button class="nav-item" data-mode="analyze"><span class="nav-icon">◎</span><span>Analyze Docs</span></button>
   </nav>
   <div class="sidebar-bottom">
-    <div class="agent-status">
-      <span class="status-dot" id="drawerStatusDot"></span>
-      <span class="status-label" id="drawerStatusText">Connecting…</span>
-    </div>
+    <div class="agent-status"><span class="status-dot" id="drawerStatusDot"></span><span class="status-label" id="drawerStatusText">Connecting…</span></div>
     <a href="/docs" target="_blank" class="docs-link">API docs ↗</a>
   </div>
 </div>
 
-<!-- Main app -->
+<!-- App grid -->
 <div class="app">
 
   <!-- Desktop sidebar -->
@@ -59,19 +56,34 @@
       <button class="nav-item" data-mode="sources"><span class="nav-icon">◉</span><span>Sources</span></button>
       <button class="nav-item" data-mode="analyze"><span class="nav-icon">◎</span><span>Analyze Docs</span></button>
     </nav>
-    <div class="sidebar-bottom">
-      <div class="agent-status">
-        <span class="status-dot" id="statusDot"></span>
-        <span class="status-label" id="statusText">Connecting…</span>
+
+    <!-- History panel -->
+    <div class="history-section">
+      <div class="history-header">
+        <span class="section-label">Recent research</span>
+        <button class="history-refresh" onclick="loadHistory()" title="Refresh">↻</button>
       </div>
-      <a href="/docs" target="_blank" class="docs-link">API docs ↗</a>
+      <div class="history-list" id="historyList">
+        <p class="history-empty">No research yet</p>
+      </div>
+    </div>
+
+    <div class="sidebar-bottom">
+      <!-- User profile -->
+      <div class="user-card" id="userCard">
+        <div class="user-avatar" id="userAvatar">?</div>
+        <div class="user-info">
+          <p class="user-name" id="userName">Loading…</p>
+          <p class="user-email" id="userEmail"></p>
+        </div>
+        <button class="logout-btn" onclick="logout()" title="Sign out">↩</button>
+      </div>
+      <div class="agent-status"><span class="status-dot" id="statusDot"></span><span class="status-label" id="statusText">Connecting…</span></div>
     </div>
   </aside>
 
-  <!-- Main content -->
+  <!-- Main -->
   <main class="main">
-
-    <!-- Header -->
     <div class="main-header">
       <div>
         <h1 class="main-title" id="modeTitle">Summarize a topic</h1>
@@ -79,15 +91,12 @@
       </div>
       <div class="header-actions" id="headerActions" style="opacity:0;pointer-events:none;">
         <button class="pill-btn" onclick="copyOutput()">Copy</button>
-        <button class="pill-btn" onclick="downloadMarkdown()">Download .md</button>
         <button class="pill-btn pill-accent" onclick="downloadPDF()">Export PDF</button>
         <button class="pill-btn pill-ghost" onclick="clearAll()">Clear</button>
       </div>
     </div>
 
-    <!-- Output / chat area -->
     <div class="output-area" id="outputArea">
-
       <!-- Empty state -->
       <div class="empty-state" id="emptyState">
         <div class="empty-orb"></div>
@@ -105,9 +114,7 @@
 
       <!-- Loading -->
       <div class="loading-state" id="loadingState" style="display:none;">
-        <div class="glow-loader">
-          <div class="glow-ring"></div><div class="glow-ring r2"></div><div class="glow-ring r3"></div>
-        </div>
+        <div class="glow-loader"><div class="glow-ring"></div><div class="glow-ring r2"></div><div class="glow-ring r3"></div></div>
         <p class="loading-label" id="loadingLabel">Researching…</p>
       </div>
 
@@ -123,20 +130,13 @@
         </div>
         <div class="chat-thread" id="chatThread"></div>
       </div>
-
     </div>
 
-    <!-- ── WhatsApp-style input bar ── -->
+    <!-- WhatsApp-style bar -->
     <div class="wa-bar">
-
-      <!-- File chips (shown above bar when files attached) -->
       <div class="file-chips" id="fileChips"></div>
-
-      <!-- Hidden file inputs -->
-      <input type="file" id="fileInputDoc"   multiple accept=".pdf,.txt,.md,.docx"      style="display:none;" onchange="onFileSelect(event)"/>
-      <input type="file" id="fileInputImage" multiple accept=".jpg,.jpeg,.png,.webp"    style="display:none;" onchange="onFileSelect(event)"/>
-
-      <!-- Upload popup menu -->
+      <input type="file" id="fileInputDoc"   multiple accept=".pdf,.txt,.md,.docx" style="display:none;" onchange="onFileSelect(event)"/>
+      <input type="file" id="fileInputImage" multiple accept=".jpg,.jpeg,.png,.webp" style="display:none;" onchange="onFileSelect(event)"/>
       <div class="upload-popup" id="uploadPopup">
         <button class="upload-option" onclick="chooseUpload('doc')">
           <span class="upload-option-icon">📄</span>
@@ -149,33 +149,20 @@
           <span class="upload-option-sub">JPG, PNG, WEBP</span>
         </button>
       </div>
-
       <div class="wa-inner">
-        <!-- + button -->
         <button class="wa-plus" id="plusBtn" onclick="toggleUploadPopup()" title="Attach file">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         </button>
-
-        <!-- Text input -->
-        <textarea
-          id="topicInput"
-          class="wa-input"
-          placeholder="Type a research topic…"
-          rows="1"
-        ></textarea>
-
-        <!-- Send button -->
+        <textarea id="topicInput" class="wa-input" placeholder="Type a research topic…" rows="1"></textarea>
         <button class="wa-send" id="sendBtn" onclick="handleSend()">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
         </button>
       </div>
-
     </div>
-
   </main>
 </div>
 
-<!-- Mobile bottom tab bar -->
+<!-- Mobile bottom tabs -->
 <nav class="mobile-modebar">
   <button class="mobile-tab active" data-mode="summarize"><span class="tab-icon">◈</span>Summarize</button>
   <button class="mobile-tab" data-mode="outline"><span class="tab-icon">◧</span>Outline</button>

@@ -1,44 +1,72 @@
 """
 pdf_exporter.py — Glow.ai v2
-Converts markdown research output into a styled, downloadable PDF.
-Uses WeasyPrint (preferred) with a fallback to reportlab.
+Properly converts markdown to formatted PDF with no asterisks.
 """
 
 import io
 import re
 
 
-# ── Markdown → HTML ────────────────────────────────────────────────────────────
 def markdown_to_html(markdown: str, title: str = "Glow.ai Research") -> str:
-    """Convert markdown to a full styled HTML document for PDF rendering."""
+    """Convert markdown to clean styled HTML — no raw asterisks in output."""
 
-    body = markdown
-    body = re.sub(r'^# (.+)$',   r'<h1>\1</h1>',   body, flags=re.MULTILINE)
-    body = re.sub(r'^## (.+)$',  r'<h2>\1</h2>',   body, flags=re.MULTILINE)
-    body = re.sub(r'^### (.+)$', r'<h3>\1</h3>',   body, flags=re.MULTILINE)
-    body = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', body)
-    body = re.sub(r'\*(.+?)\*',     r'<em>\1</em>',          body)
-    body = re.sub(r'`(.+?)`',       r'<code>\1</code>',      body)
-    body = re.sub(r'^> (.+)$',  r'<blockquote>\1</blockquote>', body, flags=re.MULTILINE)
-    body = re.sub(r'^---$',     r'<hr/>',                        body, flags=re.MULTILINE)
+    lines  = markdown.split('\n')
+    output = []
+    i      = 0
 
-    # Lists
-    body = re.sub(r'^[-*] (.+)$',    r'<li>\1</li>', body, flags=re.MULTILINE)
-    body = re.sub(r'^\d+\. (.+)$',   r'<li>\1</li>', body, flags=re.MULTILINE)
-    body = re.sub(r'(<li>.*?</li>\n?)+', lambda m: f'<ul>{m.group()}</ul>', body, flags=re.DOTALL)
+    while i < len(lines):
+        line = lines[i]
+        s    = line.strip()
 
-    # Paragraphs
-    lines = body.split('\n')
-    result = []
-    for line in lines:
-        stripped = line.strip()
-        if not stripped:
-            result.append('')
-        elif re.match(r'^<(h[1-3]|ul|ol|li|blockquote|hr|p)', stripped):
-            result.append(stripped)
+        # Blank line
+        if not s:
+            output.append('<div class="spacer"></div>')
+            i += 1
+            continue
+
+        # Headings
+        if s.startswith('### '):
+            output.append(f'<h3>{inline(s[4:])}</h3>')
+        elif s.startswith('## '):
+            output.append(f'<h2>{inline(s[3:])}</h2>')
+        elif s.startswith('# '):
+            output.append(f'<h1>{inline(s[2:])}</h1>')
+
+        # HR
+        elif s == '---':
+            output.append('<hr/>')
+
+        # Blockquote
+        elif s.startswith('> '):
+            output.append(f'<blockquote>{inline(s[2:])}</blockquote>')
+
+        # Bullet list item
+        elif re.match(r'^[-*•] ', s):
+            # Collect consecutive list items
+            items = []
+            while i < len(lines) and re.match(r'^[-*•] ', lines[i].strip()):
+                items.append(f'<li>{inline(lines[i].strip()[2:])}</li>')
+                i += 1
+            output.append('<ul>' + ''.join(items) + '</ul>')
+            continue
+
+        # Numbered list item
+        elif re.match(r'^\d+\. ', s):
+            items = []
+            while i < len(lines) and re.match(r'^\d+\. ', lines[i].strip()):
+                text = re.sub(r'^\d+\. ', '', lines[i].strip())
+                items.append(f'<li>{inline(text)}</li>')
+                i += 1
+            output.append('<ol>' + ''.join(items) + '</ol>')
+            continue
+
+        # Paragraph
         else:
-            result.append(f'<p>{stripped}</p>')
-    body = '\n'.join(result)
+            output.append(f'<p>{inline(s)}</p>')
+
+        i += 1
+
+    body = '\n'.join(output)
 
     return f"""<!DOCTYPE html>
 <html lang="en">
@@ -46,12 +74,11 @@ def markdown_to_html(markdown: str, title: str = "Glow.ai Research") -> str:
 <meta charset="UTF-8"/>
 <title>{title}</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,700;1,400&display=swap');
   * {{ box-sizing: border-box; margin: 0; padding: 0; }}
   body {{
-    font-family: 'Inter', Georgia, serif;
+    font-family: Georgia, 'Times New Roman', serif;
     font-size: 11pt;
-    line-height: 1.75;
+    line-height: 1.8;
     color: #1a1a1a;
     padding: 60px 72px;
     max-width: 800px;
@@ -59,51 +86,51 @@ def markdown_to_html(markdown: str, title: str = "Glow.ai Research") -> str:
   }}
   .header {{
     border-bottom: 2px solid #1a3a2a;
-    padding-bottom: 20px;
-    margin-bottom: 36px;
+    padding-bottom: 18px;
+    margin-bottom: 32px;
   }}
   .brand {{
-    font-family: 'Playfair Display', Georgia, serif;
-    font-size: 20pt;
+    font-size: 22pt;
     font-weight: 700;
     color: #1a3a2a;
     letter-spacing: -0.02em;
+    font-family: Georgia, serif;
   }}
   .brand span {{ color: #10b981; font-style: italic; }}
-  .meta {{ font-size: 9pt; color: #888; margin-top: 4px; }}
+  .meta {{ font-size: 9pt; color: #999; margin-top: 4px; font-family: Arial, sans-serif; }}
   h1 {{
-    font-family: 'Playfair Display', Georgia, serif;
-    font-size: 20pt;
+    font-family: Georgia, serif;
+    font-size: 18pt;
     font-weight: 700;
     color: #111;
     margin: 28px 0 10px;
     line-height: 1.25;
   }}
   h2 {{
-    font-family: 'Inter', sans-serif;
+    font-family: Arial, Helvetica, sans-serif;
     font-size: 13pt;
-    font-weight: 600;
+    font-weight: 700;
     color: #1a3a2a;
     margin: 24px 0 8px;
     padding-bottom: 5px;
-    border-bottom: 1px solid #e0ede8;
+    border-bottom: 1px solid #c8e6d8;
   }}
   h3 {{
-    font-family: 'Inter', sans-serif;
+    font-family: Arial, Helvetica, sans-serif;
     font-size: 11pt;
-    font-weight: 500;
+    font-weight: 700;
     color: #333;
     margin: 18px 0 6px;
   }}
-  p  {{ margin: 8px 0; color: #333; }}
-  ul {{ padding-left: 20px; margin: 8px 0; }}
-  li {{ margin: 4px 0; color: #333; }}
-  strong {{ font-weight: 600; color: #111; }}
-  em {{ font-style: italic; color: #555; }}
+  p  {{ margin: 6px 0 10px; color: #222; }}
+  ul, ol {{ padding-left: 22px; margin: 8px 0 12px; }}
+  li {{ margin: 5px 0; color: #222; line-height: 1.7; }}
+  strong {{ font-weight: 700; color: #111; }}
+  em {{ font-style: italic; color: #444; }}
   code {{
     font-family: 'Courier New', monospace;
     font-size: 9pt;
-    background: #f3f3f3;
+    background: #f4f4f4;
     padding: 1px 5px;
     border-radius: 3px;
     color: #1a3a2a;
@@ -115,15 +142,18 @@ def markdown_to_html(markdown: str, title: str = "Glow.ai Research") -> str:
     color: #555;
     background: #f8fdf9;
     border-radius: 0 4px 4px 0;
+    font-style: italic;
   }}
-  hr {{ border: none; border-top: 1px solid #e5e5e5; margin: 20px 0; }}
+  hr {{ border: none; border-top: 1px solid #e0e0e0; margin: 20px 0; }}
+  .spacer {{ height: 4px; }}
   .footer {{
     margin-top: 48px;
-    padding-top: 16px;
+    padding-top: 14px;
     border-top: 1px solid #e5e5e5;
     font-size: 8pt;
-    color: #aaa;
+    color: #bbb;
     text-align: center;
+    font-family: Arial, sans-serif;
   }}
 </style>
 </head>
@@ -133,80 +163,138 @@ def markdown_to_html(markdown: str, title: str = "Glow.ai Research") -> str:
     <div class="meta">Research output — generated by Glow.ai Academic Research Agent</div>
   </div>
   {body}
-  <div class="footer">Generated by Glow.ai · Academic Research Agent · For educational use</div>
+  <div class="footer">Generated by Glow.ai &nbsp;·&nbsp; Academic Research Agent &nbsp;·&nbsp; For educational use</div>
 </body>
 </html>"""
 
 
-# ── PDF generation ─────────────────────────────────────────────────────────────
+def inline(text: str) -> str:
+    """Convert inline markdown (bold, italic, code, links) to HTML — no asterisks left."""
+    # Escape HTML special chars first
+    text = text.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+    # Bold+italic  ***text***
+    text = re.sub(r'\*\*\*(.+?)\*\*\*', r'<strong><em>\1</em></strong>', text)
+    # Bold  **text**
+    text = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', text)
+    # Italic  *text*
+    text = re.sub(r'\*(.+?)\*', r'<em>\1</em>', text)
+    # Code  `text`
+    text = re.sub(r'`(.+?)`', r'<code>\1</code>', text)
+    return text
+
+
 def generate_pdf(markdown: str, title: str = "Glow Research") -> bytes:
-    """
-    Convert markdown to PDF bytes.
-    Tries WeasyPrint first, falls back to basic reportlab.
-    """
-    html = markdown_to_html(markdown, title)
+    """Convert markdown to PDF bytes using ReportLab (no system deps needed)."""
 
-    # ── WeasyPrint ─────────────────────────────────────────────────────────────
-    try:
-        from weasyprint import HTML
-        pdf_bytes = HTML(string=html).write_pdf()
-        return pdf_bytes
-    except ImportError:
-        pass
-    except Exception as e:
-        print(f"WeasyPrint error: {e}")
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import cm
+    from reportlab.lib import colors
+    from reportlab.platypus import (
+        SimpleDocTemplate, Paragraph, Spacer,
+        HRFlowable, ListFlowable, ListItem
+    )
+    from reportlab.lib.enums import TA_LEFT, TA_CENTER
 
-    # ── Fallback: reportlab (plain text PDF) ───────────────────────────────────
-    try:
-        from reportlab.lib.pagesizes import A4
-        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-        from reportlab.lib.units import cm
-        from reportlab.lib import colors
-        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, HRFlowable
-        from reportlab.lib.enums import TA_LEFT
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buf, pagesize=A4,
+        leftMargin=2.5*cm, rightMargin=2.5*cm,
+        topMargin=2.2*cm, bottomMargin=2.2*cm,
+        title=title,
+    )
 
-        buf    = io.BytesIO()
-        doc    = SimpleDocTemplate(buf, pagesize=A4,
-                                   leftMargin=2.5*cm, rightMargin=2.5*cm,
-                                   topMargin=2.5*cm, bottomMargin=2.5*cm)
-        styles = getSampleStyleSheet()
+    green  = colors.HexColor('#1a3a2a')
+    green2 = colors.HexColor('#10b981')
+    grey   = colors.HexColor('#555555')
+    dark   = colors.HexColor('#111111')
+    mid    = colors.HexColor('#333333')
 
-        h1_style = ParagraphStyle('H1', parent=styles['Heading1'],
-                                  fontSize=18, textColor=colors.HexColor('#1a3a2a'), spaceAfter=10)
-        h2_style = ParagraphStyle('H2', parent=styles['Heading2'],
-                                  fontSize=13, textColor=colors.HexColor('#1a3a2a'), spaceAfter=6)
-        h3_style = ParagraphStyle('H3', parent=styles['Heading3'],
-                                  fontSize=11, textColor=colors.HexColor('#333333'), spaceAfter=4)
-        body_style = ParagraphStyle('Body', parent=styles['Normal'],
-                                    fontSize=10, leading=16, textColor=colors.HexColor('#333333'))
+    h1s = ParagraphStyle('H1', fontName='Times-Bold',   fontSize=18, textColor=dark,  spaceBefore=18, spaceAfter=8,  leading=24)
+    h2s = ParagraphStyle('H2', fontName='Helvetica-Bold',fontSize=13, textColor=green, spaceBefore=16, spaceAfter=6,  leading=18, borderPadding=(0,0,4,0))
+    h3s = ParagraphStyle('H3', fontName='Helvetica-Bold',fontSize=11, textColor=mid,   spaceBefore=12, spaceAfter=4,  leading=16)
+    bds = ParagraphStyle('Body',fontName='Times-Roman',  fontSize=10, textColor=mid,   spaceBefore=2,  spaceAfter=6,  leading=16)
+    lis = ParagraphStyle('LI',  fontName='Times-Roman',  fontSize=10, textColor=mid,   spaceBefore=0,  spaceAfter=2,  leading=15, leftIndent=10)
+    bqs = ParagraphStyle('BQ',  fontName='Times-Italic', fontSize=10, textColor=grey,  spaceBefore=6,  spaceAfter=6,  leading=15, leftIndent=16, rightIndent=8)
 
-        story = [
-            Paragraph("Glow.ai — Research Output", h1_style),
-            HRFlowable(width="100%", thickness=1, color=colors.HexColor('#10b981')),
-            Spacer(1, 12),
-        ]
+    def rl_inline(text):
+        """Convert inline markdown to ReportLab XML — no asterisks."""
+        text = text.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+        text = re.sub(r'\*\*\*(.+?)\*\*\*', r'<b><i>\1</i></b>', text)
+        text = re.sub(r'\*\*(.+?)\*\*',     r'<b>\1</b>',        text)
+        text = re.sub(r'\*(.+?)\*',          r'<i>\1</i>',        text)
+        text = re.sub(r'`(.+?)`',            r'<font name="Courier" fontSize="9">\1</font>', text)
+        return text
 
-        for line in markdown.split('\n'):
-            s = line.strip()
-            if not s:
-                story.append(Spacer(1, 6))
-            elif s.startswith('# '):
-                story.append(Paragraph(s[2:], h1_style))
-            elif s.startswith('## '):
-                story.append(Paragraph(s[3:], h2_style))
-            elif s.startswith('### '):
-                story.append(Paragraph(s[4:], h3_style))
-            elif s.startswith(('- ', '* ')):
-                story.append(Paragraph(f"• {s[2:]}", body_style))
-            elif s == '---':
-                story.append(HRFlowable(width="100%", thickness=0.5, color=colors.lightgrey))
-            else:
-                clean = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', s)
-                clean = re.sub(r'\*(.+?)\*', r'<i>\1</i>', clean)
-                story.append(Paragraph(clean, body_style))
+    # ── Brand header ──────────────────────────────────────────────────────────
+    brand_style = ParagraphStyle('Brand', fontName='Times-Bold', fontSize=20,
+                                  textColor=green, spaceBefore=0, spaceAfter=2)
+    meta_style  = ParagraphStyle('Meta',  fontName='Helvetica',  fontSize=8,
+                                  textColor=colors.HexColor('#aaaaaa'), spaceAfter=10)
 
-        doc.build(story)
-        return buf.getvalue()
+    story = [
+        Paragraph('Glow.ai', brand_style),
+        Paragraph('Research output — generated by Glow.ai Academic Research Agent', meta_style),
+        HRFlowable(width='100%', thickness=1.5, color=green, spaceAfter=16),
+    ]
 
-    except ImportError:
-        raise RuntimeError("No PDF library available. Install WeasyPrint or ReportLab.")
+    # ── Parse markdown line by line ───────────────────────────────────────────
+    lines = markdown.split('\n')
+    i = 0
+
+    while i < len(lines):
+        s = lines[i].strip()
+
+        if not s:
+            story.append(Spacer(1, 5))
+            i += 1
+            continue
+
+        if s.startswith('### '):
+            story.append(Paragraph(rl_inline(s[4:]), h3s))
+        elif s.startswith('## '):
+            story.append(HRFlowable(width='100%', thickness=0.5, color=colors.HexColor('#c8e6d8'), spaceBefore=8))
+            story.append(Paragraph(rl_inline(s[3:]), h2s))
+        elif s.startswith('# '):
+            story.append(Paragraph(rl_inline(s[2:]), h1s))
+        elif s == '---':
+            story.append(HRFlowable(width='100%', thickness=0.5, color=colors.lightgrey, spaceBefore=8, spaceAfter=8))
+        elif s.startswith('> '):
+            story.append(Paragraph(rl_inline(s[2:]), bqs))
+        elif re.match(r'^[-*•] ', s):
+            # Collect bullet list
+            items = []
+            while i < len(lines) and re.match(r'^[-*•] ', lines[i].strip()):
+                items.append(ListItem(Paragraph(rl_inline(lines[i].strip()[2:]), lis), bulletColor=green2))
+                i += 1
+            story.append(ListFlowable(items, bulletType='bullet', start='•',
+                                       leftIndent=14, bulletFontSize=10,
+                                       bulletColor=green2, spaceBefore=4, spaceAfter=4))
+            continue
+        elif re.match(r'^\d+\. ', s):
+            # Collect numbered list
+            items = []
+            num = 1
+            while i < len(lines) and re.match(r'^\d+\. ', lines[i].strip()):
+                text = re.sub(r'^\d+\. ', '', lines[i].strip())
+                items.append(ListItem(Paragraph(rl_inline(text), lis)))
+                i += 1
+                num += 1
+            story.append(ListFlowable(items, bulletType='1', leftIndent=14,
+                                       spaceBefore=4, spaceAfter=4))
+            continue
+        else:
+            story.append(Paragraph(rl_inline(s), bds))
+
+        i += 1
+
+    # ── Footer ────────────────────────────────────────────────────────────────
+    footer_style = ParagraphStyle('Footer', fontName='Helvetica', fontSize=7,
+                                   textColor=colors.HexColor('#bbbbbb'),
+                                   alignment=TA_CENTER, spaceBefore=24)
+    story.append(Spacer(1, 24))
+    story.append(HRFlowable(width='100%', thickness=0.5, color=colors.HexColor('#e5e5e5')))
+    story.append(Paragraph('Generated by Glow.ai &nbsp;·&nbsp; Academic Research Agent &nbsp;·&nbsp; For educational use', footer_style))
+
+    doc.build(story)
+    return buf.getvalue()

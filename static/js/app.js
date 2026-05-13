@@ -240,6 +240,7 @@ async function runAgent(topic) {
 
     typing.remove();
     appendAiBubble(data.result);
+    afterAiResponse();
     setActions(true);
 
   } catch (err) {
@@ -274,6 +275,7 @@ async function sendFollowUp(msg) {
 
     typing.remove();
     appendAiBubble(data.result);
+    afterAiResponse();
 
   } catch (err) {
     typing.remove();
@@ -436,3 +438,154 @@ function renderMarkdown(md) {
 
 function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function escAttr(s) { return String(s).replace(/'/g,"\\'"); }
+
+/* ════════════════════════════════════════
+   User profile & research history
+════════════════════════════════════════ */
+
+// Load on init
+document.addEventListener('DOMContentLoaded', () => {
+  loadUser();
+  loadHistory();
+  restoreLastSession();
+});
+
+async function loadUser() {
+  try {
+    const res  = await fetch('/api/auth/me');
+    if (!res.ok) return;
+    const data = await res.json();
+    document.getElementById('userName').textContent  = data.name;
+    document.getElementById('userEmail').textContent = data.email;
+    document.getElementById('userAvatar').textContent = data.name.charAt(0).toUpperCase();
+  } catch {}
+}
+
+async function logout() {
+  await fetch('/api/auth/logout', { method: 'POST' });
+  window.location.href = '/login';
+}
+
+// ── History ───────────────────────────────────────────────────────────────────
+async function loadHistory() {
+  try {
+    const res  = await fetch('/api/history');
+    if (!res.ok) return;
+    const data = await res.json();
+    renderHistory(data);
+  } catch {}
+}
+
+function renderHistory(sessions) {
+  const list = document.getElementById('historyList');
+  if (!sessions.length) {
+    list.innerHTML = '<p class="history-empty">No research yet</p>';
+    return;
+  }
+  list.innerHTML = sessions.map(s => `
+    <div class="history-item" onclick="restoreSession(${s.id})">
+      <div class="history-mode-dot"></div>
+      <div class="history-text">
+        <span class="history-topic">${escHtml(s.topic)}</span>
+        <span class="history-date">${s.created_at}</span>
+      </div>
+      <button class="history-del" onclick="deleteSession(event, ${s.id})" title="Delete">✕</button>
+    </div>
+  `).join('');
+
+  // Cache in sessionStorage so it survives page navigation
+  sessionStorage.setItem('glowHistory', JSON.stringify(sessions));
+}
+
+async function deleteSession(e, id) {
+  e.stopPropagation();
+  await fetch(`/api/history/${id}`, { method: 'DELETE' });
+  loadHistory();
+}
+
+// ── Restore session ───────────────────────────────────────────────────────────
+async function restoreSession(id) {
+  try {
+    const res  = await fetch('/api/history');
+    const data = await res.json();
+    const s    = data.find(x => x.id === id);
+    if (!s) return;
+
+    clearAll();
+    lastOutput = s.result;
+    chatHistory = [
+      { role: 'user', content: s.topic },
+      { role: 'assistant', content: s.result },
+    ];
+    sessionStarted = true;
+
+    setMode(s.mode === 'summary' ? 'summarize' : s.mode);
+    document.getElementById('resultArea').style.display = 'flex';
+    document.getElementById('resultBadge').textContent  = s.mode;
+    document.getElementById('resultStats').textContent  = `${s.result.trim().split(/\s+/).length.toLocaleString()} words`;
+    hide('emptyState');
+
+    const thread = document.getElementById('chatThread');
+    thread.innerHTML = '';
+    appendUserBubble(s.topic);
+    appendAiBubble(s.result);
+    setActions(true);
+
+  } catch (err) {
+    console.error('Restore failed:', err);
+  }
+}
+
+// ── Persist current session in localStorage ───────────────────────────────────
+function saveCurrentSession() {
+  if (!lastOutput) return;
+  localStorage.setItem('glowCurrentSession', JSON.stringify({
+    mode: currentMode,
+    topic: document.getElementById('topicInput').value || chatHistory[0]?.content || '',
+    result: lastOutput,
+    history: chatHistory,
+    timestamp: Date.now(),
+  }));
+}
+
+function restoreLastSession() {
+  try {
+    const raw = localStorage.getItem('glowCurrentSession');
+    if (!raw) return;
+    const s = JSON.parse(raw);
+    // Only restore if less than 24 hours old
+    if (Date.now() - s.timestamp > 24 * 60 * 60 * 1000) {
+      localStorage.removeItem('glowCurrentSession');
+      return;
+    }
+
+    lastOutput  = s.result;
+    chatHistory = s.history || [];
+    sessionStarted = true;
+
+    setMode(s.mode);
+    document.getElementById('resultArea').style.display = 'flex';
+    document.getElementById('resultBadge').textContent  = MODE_CONFIG[s.mode]?.badge || s.mode;
+    document.getElementById('resultStats').textContent  = `${s.result.trim().split(/\s+/).length.toLocaleString()} words`;
+    hide('emptyState');
+
+    const thread = document.getElementById('chatThread');
+    thread.innerHTML = '';
+    chatHistory.forEach(m => {
+      if (m.role === 'user')      appendUserBubble(m.content);
+      else if (m.role === 'assistant') appendAiBubble(m.content);
+    });
+    setActions(true);
+
+  } catch {
+    localStorage.removeItem('glowCurrentSession');
+  }
+}
+
+// Auto-save after every AI response
+const _origAppendAiBubble = appendAiBubble;
+// We patch the save call inside sendFollowUp and runAgent via a wrapper
+function afterAiResponse() {
+  saveCurrentSession();
+  loadHistory();
+}
